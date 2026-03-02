@@ -3,9 +3,25 @@ title: monitor
 description: Open TUI to monitor rooms in real-time
 ---
 
-The `monitor` command launches an interactive Terminal User Interface (TUI) that displays real-time information about rooms, participants, and activity on a Gambiarra hub.
+<Warning>
+  The `monitor` command is defined in the source code but not currently registered in the CLI. To access the TUI, run `gambiarra` with no arguments in a TTY environment instead.
+</Warning>
 
-## Usage
+The `monitor` command is designed to launch an interactive Terminal User Interface (TUI) that displays real-time information about rooms, participants, and activity on a Gambiarra hub.
+
+## Alternative: Launch TUI without command
+
+Until the `monitor` command is registered, you can access the TUI by running:
+
+```bash
+gambiarra
+```
+
+This will launch the TUI if you're in a TTY environment (interactive terminal).
+
+## Planned Usage
+
+Once registered, the command will work as follows:
 
 ```bash
 gambiarra monitor [options]
