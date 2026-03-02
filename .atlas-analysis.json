@@ -1,0 +1,125 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Gambiarra",
+  "projectDescription": "Share local LLMs across your network with CLI, SDK, and TUI for monitoring",
+  "theme": "aspen",
+  "primaryColor": "#00FFFF",
+  "lightColor": "#00FF00",
+  "darkColor": "#FF79C6",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "CLI Commands",
+            "pages": [
+              "cli/serve",
+              "cli/create",
+              "cli/join",
+              "cli/list",
+              "cli/monitor"
+            ]
+          },
+          {
+            "group": "SDK",
+            "pages": [
+              "sdk/overview",
+              "sdk/installation",
+              "sdk/usage",
+              "sdk/api-reference"
+            ]
+          },
+          {
+            "group": "Terminal UI",
+            "pages": [
+              "tui/overview",
+              "tui/screens",
+              "tui/keyboard-shortcuts"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/architecture",
+              "guides/model-routing",
+              "guides/room-management",
+              "guides/mdns-discovery"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/providers",
+              "advanced/security",
+              "advanced/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "HTTP API",
+            "pages": [
+              "api/overview",
+              "api/rooms",
+              "api/participants",
+              "api/chat-completions",
+              "api/sse-events"
+            ]
+          },
+          {
+            "group": "Core Types",
+            "pages": [
+              "api/types/room",
+              "api/types/participant",
+              "api/types/protocol"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "CLI for managing LLM hubs and rooms",
+    "SDK with Vercel AI SDK integration",
+    "Real-time monitoring via Terminal UI",
+    "mDNS auto-discovery for zero-config networking",
+    "OpenAI-compatible API proxy",
+    "Flexible model routing strategies",
+    "Server-Sent Events for live updates",
+    "Support for Ollama, LM Studio, and any OpenAI-compatible endpoint"
+  ],
+  "publicApiSurface": [
+    "gambiarra serve",
+    "gambiarra create",
+    "gambiarra join",
+    "gambiarra list",
+    "gambiarra monitor",
+    "createGambiarra()",
+    "gambiarra.participant()",
+    "gambiarra.model()",
+    "gambiarra.any()",
+    "gambiarra.listParticipants()",
+    "gambiarra.listModels()",
+    "POST /rooms",
+    "GET /rooms",
+    "POST /rooms/:code/join",
+    "DELETE /rooms/:code/leave/:id",
+    "POST /rooms/:code/health",
+    "GET /rooms/:code/participants",
+    "GET /rooms/:code/v1/models",
+    "POST /rooms/:code/v1/chat/completions",
+    "GET /rooms/:code/events"
+  ]
+}
