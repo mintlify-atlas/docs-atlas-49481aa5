@@ -1,0 +1,649 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for Gambiarra deployments
+---
+
+## Quick Diagnostics
+
+Before diving into specific issues, run these diagnostic commands:
+
+```bash
+# Check hub health
+curl http://localhost:3000/health
+
+# List available rooms
+gambiarra list
+
+# Check if your LLM endpoint is responding
+curl http://localhost:11434/v1/models
+```
+
+## Common Issues
+
+<Accordion title="Port Already in Use">
+  
+  **Symptoms:**
+  ```
+  Error: Failed to start server: address already in use
+  ```
+  
+  **Cause:** Another process is using port 3000 (or your specified port).
+  
+  **Solutions:**
+  
+  1. **Use a different port:**
+  ```bash
+  gambiarra serve --port 3001
+  ```
+  
+  2. **Find and kill the process using the port:**
+  ```bash
+  # Find the process
+  lsof -i :3000
+  # or
+  netstat -tlnp | grep :3000
+  
+  # Kill the process
+  kill -9 <PID>
+  ```
+  
+  3. **Check if another Gambiarra instance is running:**
+  ```bash
+  ps aux | grep gambiarra
+  ```
+
+</Accordion>
+
+<Accordion title="Connection Refused to Hub">
+  
+  **Symptoms:**
+  ```
+  Error: Failed to connect to hub at http://localhost:3000
+  ECONNREFUSED
+  ```
+  
+  **Cause:** Hub is not running or not accessible.
+  
+  **Solutions:**
+  
+  1. **Verify hub is running:**
+  ```bash
+  curl http://localhost:3000/health
+  ```
+  
+  2. **Check if hub is listening on the correct interface:**
+  ```bash
+  # If hub is bound to 127.0.0.1, it's not accessible from other machines
+  gambiarra serve --hostname 0.0.0.0 --port 3000
+  ```
+  
+  3. **Verify firewall rules:**
+  ```bash
+  # Linux
+  sudo ufw status
+  sudo ufw allow 3000/tcp
+  
+  # macOS
+  sudo /usr/libexec/ApplicationFirewall/socketfilterfw --list
+  ```
+  
+  4. **Try using the IP address instead of localhost:**
+  ```bash
+  # Find your local IP
+  hostname -I  # Linux
+  ipconfig getifaddr en0  # macOS
+  
+  # Connect using IP
+  gambiarra join ABC123 --hub http://192.168.1.100:3000
+  ```
+
+</Accordion>
+
+<Accordion title="Room Not Found">
+  
+  **Symptoms:**
+  ```
+  Error: Room not found
+  ```
+  
+  **Cause:** Room code is incorrect or room was deleted.
+  
+  **Solutions:**
+  
+  1. **List available rooms:**
+  ```bash
+  gambiarra list
+  ```
+  
+  2. **Create a new room:**
+  ```bash
+  gambiarra create --name "My Room"
+  ```
+  
+  3. **Check for typos in room code (case-sensitive):**
+  ```bash
+  # Room codes are uppercase
+  gambiarra join ABC123  # Correct
+  gambiarra join abc123  # Will be converted to ABC123
+  ```
+  
+  4. **Verify hub URL:**
+  ```bash
+  # If using a custom hub URL
+  gambiarra list --hub http://192.168.1.100:3000
+  ```
+
+</Accordion>
+
+<Accordion title="Model Not Found">
+  
+  **Symptoms:**
+  ```
+  Model 'llama3' not found.
+  Available models: llama3.2, mistral, codellama
+  ```
+  
+  **Cause:** Model name doesn't match any loaded model.
+  
+  **Solutions:**
+  
+  1. **List available models on your endpoint:**
+  ```bash
+  # Ollama
+  ollama list
+  curl http://localhost:11434/api/tags
+  
+  # OpenAI-compatible
+  curl http://localhost:11434/v1/models
+  ```
+  
+  2. **Pull/download the model:**
+  ```bash
+  # Ollama
+  ollama pull llama3
+  
+  # LM Studio: Use the GUI to download models
+  ```
+  
+  3. **Use exact model name (case-sensitive):**
+  ```bash
+  gambiarra join ABC123 --model llama3.2
+  ```
+  
+  4. **Verify model is loaded:**
+  ```bash
+  # Some providers require models to be explicitly loaded
+  # Check your LLM server's documentation
+  ```
+
+</Accordion>
+
+<Accordion title="Participant Offline">
+  
+  **Symptoms:**
+  ```
+  Error: Participant is offline
+  ```
+  
+  **Cause:** Participant health checks are failing.
+  
+  **Technical Details:**
+  - Health check interval: 10 seconds (see `packages/core/src/types.ts:15`)
+  - Timeout threshold: 30 seconds (3 missed checks)
+  - Implementation: `packages/core/src/hub.ts:380-388`
+  
+  **Solutions:**
+  
+  1. **Check if participant process is still running:**
+  ```bash
+  ps aux | grep gambiarra
+  ```
+  
+  2. **Verify network connectivity:**
+  ```bash
+  # From participant to hub
+  curl http://<hub-ip>:3000/health
+  ```
+  
+  3. **Check participant logs for errors:**
+  ```bash
+  # Look for health check failures or connection errors
+  ```
+  
+  4. **Restart the participant:**
+  ```bash
+  # Ctrl+C to stop, then rejoin
+  gambiarra join ABC123 --model llama3
+  ```
+  
+  5. **Check for network issues:**
+  - WiFi disconnections
+  - Laptop sleep/hibernate
+  - Network congestion
+  - Firewall blocking health checks
+
+</Accordion>
+
+<Accordion title="mDNS Discovery Not Working">
+  
+  **Symptoms:**
+  ```
+  Cannot auto-discover hub on local network
+  ```
+  
+  **Cause:** mDNS/Bonjour is not enabled or blocked.
+  
+  **Solutions:**
+  
+  1. **Enable mDNS on hub:**
+  ```bash
+  gambiarra serve --mdns
+  ```
+  
+  2. **Check if mDNS is supported:**
+  ```bash
+  # Linux: Ensure avahi-daemon is running
+  sudo systemctl status avahi-daemon
+  sudo systemctl start avahi-daemon
+  
+  # macOS: Bonjour is built-in
+  # Windows: Bonjour Print Services must be installed
+  ```
+  
+  3. **Check for firewall blocking mDNS (port 5353 UDP):**
+  ```bash
+  # Linux
+  sudo ufw allow 5353/udp
+  
+  # Test mDNS manually
+  avahi-browse -a
+  ```
+  
+  4. **Use explicit hub URL instead:**
+  ```bash
+  gambiarra join ABC123 --hub http://192.168.1.100:3000
+  ```
+  
+  5. **Check network configuration:**
+  - Ensure devices are on the same network segment
+  - Some networks block multicast traffic
+  - VPNs may interfere with mDNS
+
+</Accordion>
+
+<Accordion title="LLM Endpoint Not Responding">
+  
+  **Symptoms:**
+  ```
+  Error: Failed to proxy request: ECONNREFUSED
+  No models found at http://localhost:11434
+  ```
+  
+  **Cause:** LLM server is not running or not accessible.
+  
+  **Solutions:**
+  
+  1. **Verify LLM server is running:**
+  ```bash
+  # Ollama
+  ollama list
+  curl http://localhost:11434/api/tags
+  
+  # LM Studio: Check if server is started in GUI
+  
+  # vLLM
+  curl http://localhost:8000/v1/models
+  ```
+  
+  2. **Check correct port:**
+  ```bash
+  # Common default ports
+  # Ollama: 11434
+  # LM Studio: 1234
+  # LocalAI: 8080
+  # vLLM: 8000
+  # text-generation-webui: 5000
+  ```
+  
+  3. **Test endpoint directly:**
+  ```bash
+  curl http://localhost:11434/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "llama3",
+      "messages": [{"role": "user", "content": "Hi"}]
+    }'
+  ```
+  
+  4. **Check server logs for errors:**
+  ```bash
+  # Ollama logs
+  journalctl -u ollama -f  # Linux systemd
+  
+  # Other servers: Check console output
+  ```
+  
+  5. **Restart the LLM server:**
+  ```bash
+  # Ollama
+  sudo systemctl restart ollama  # Linux
+  ollama serve  # Manual
+  
+  # Others: Use provider-specific restart method
+  ```
+
+</Accordion>
+
+<Accordion title="Streaming Not Working">
+  
+  **Symptoms:**
+  ```
+  Streaming response hangs or returns all at once
+  ```
+  
+  **Cause:** SSE (Server-Sent Events) not properly configured.
+  
+  **Solutions:**
+  
+  1. **Verify streaming is enabled in request:**
+  ```typescript
+  const stream = await streamText({
+    model: gambiarra.any(),
+    prompt: "Write a story",
+    stream: true,  // Ensure this is set
+  });
+  ```
+  
+  2. **Check if using reverse proxy with buffering:**
+  ```nginx
+  # Nginx: Disable buffering for SSE
+  location / {
+    proxy_buffering off;
+    proxy_cache off;
+    chunked_transfer_encoding off;
+  }
+  ```
+  
+  3. **Verify LLM endpoint supports streaming:**
+  ```bash
+  curl -N http://localhost:11434/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "llama3",
+      "messages": [{"role": "user", "content": "Hi"}],
+      "stream": true
+    }'
+  ```
+  
+  4. **Check hub logs for streaming errors:**
+  - Hub should return `Content-Type: text/event-stream`
+  - See implementation: `packages/core/src/hub.ts:284-293`
+
+</Accordion>
+
+<Accordion title="Password Authentication Failing">
+  
+  **Symptoms:**
+  ```
+  Error: Invalid password
+  ```
+  
+  **Cause:** Incorrect password or password not provided.
+  
+  **Solutions:**
+  
+  1. **Verify password is correct:**
+  ```bash
+  # Passwords are case-sensitive
+  gambiarra join ABC123 --password "Secret123"
+  ```
+  
+  2. **Check if room requires password:**
+  ```bash
+  # List rooms to see if password is required
+  gambiarra list
+  ```
+  
+  3. **Create room with password:**
+  ```bash
+  gambiarra create --name "Private" --password "mypass"
+  ```
+  
+  4. **Join with password:**
+  ```bash
+  gambiarra join ABC123 \
+    --model llama3 \
+    --password "mypass"
+  ```
+  
+  <Note>
+    Passwords are hashed with argon2id before storage (see `packages/core/src/room.ts:10-18`).
+  </Note>
+
+</Accordion>
+
+<Accordion title="High Memory Usage">
+  
+  **Symptoms:**
+  ```
+  Hub or participant consuming excessive RAM
+  ```
+  
+  **Cause:** Memory leaks or resource buildup.
+  
+  **Solutions:**
+  
+  1. **Check for room/participant accumulation:**
+  ```bash
+  # Rooms are stored in memory
+  # List all rooms and participants
+  gambiarra list
+  ```
+  
+  2. **Restart the hub periodically:**
+  ```bash
+  # Hub stores rooms in memory only
+  # Restarting clears all rooms
+  ```
+  
+  3. **Monitor SSE connections:**
+  ```bash
+  # Long-lived SSE connections can accumulate
+  # Ensure TUI/monitoring clients reconnect properly
+  ```
+  
+  4. **Check for participant health check buildup:**
+  - Health checks run every 10 seconds
+  - Failed participants should be marked offline
+  - See: `packages/core/src/hub.ts:380-388`
+
+</Accordion>
+
+<Accordion title="SDK Integration Issues">
+  
+  **Symptoms:**
+  ```
+  SDK calls failing or hanging
+  ```
+  
+  **Cause:** Incorrect SDK configuration or network issues.
+  
+  **Solutions:**
+  
+  1. **Verify SDK configuration:**
+  ```typescript
+  import { createGambiarra } from "gambiarra-sdk";
+  
+  const gambiarra = createGambiarra({
+    roomCode: "ABC123",
+    hubUrl: "http://localhost:3000",  // Ensure correct URL
+  });
+  ```
+  
+  2. **Test hub connectivity:**
+  ```typescript
+  // Check if hub is accessible
+  const response = await fetch(
+    `${hubUrl}/rooms/${roomCode}/participants`
+  );
+  console.log(await response.json());
+  ```
+  
+  3. **Verify participants are online:**
+  ```typescript
+  const response = await fetch(
+    `${hubUrl}/rooms/${roomCode}/participants`
+  );
+  const { participants } = await response.json();
+  console.log(participants.filter(p => p.status === "online"));
+  ```
+  
+  4. **Check model routing:**
+  ```typescript
+  // Try different routing strategies
+  gambiarra.any()  // Random online participant
+  gambiarra.participant("participant-id")  // Specific participant
+  gambiarra.model("llama3")  // By model name
+  ```
+  
+  5. **Enable debug logging:**
+  ```typescript
+  // Add error handling
+  try {
+    const result = await generateText({
+      model: gambiarra.any(),
+      prompt: "test",
+    });
+  } catch (error) {
+    console.error("Generation failed:", error);
+  }
+  ```
+
+</Accordion>
+
+## Platform-Specific Issues
+
+### Linux
+
+**Issue: Permission denied on port 3000**
+```bash
+# Use a port > 1024 or run with sudo (not recommended)
+gambiarra serve --port 3001
+```
+
+**Issue: avahi-daemon not running**
+```bash
+sudo systemctl enable avahi-daemon
+sudo systemctl start avahi-daemon
+```
+
+### macOS
+
+**Issue: Firewall blocking connections**
+```bash
+# Allow Gambiarra through firewall
+# System Preferences > Security & Privacy > Firewall > Firewall Options
+# Add gambiarra to allowed applications
+```
+
+**Issue: Bonjour not discovering services**
+```bash
+# Bonjour is built-in, but can be blocked by network settings
+# Check network preferences for any proxy/VPN interference
+```
+
+### Windows
+
+**Issue: Bonjour not installed**
+```powershell
+# Install Bonjour Print Services
+# Download from Apple or use Chocolatey
+choco install bonjour
+```
+
+**Issue: Windows Firewall blocking**
+```powershell
+# Allow port through Windows Firewall
+netsh advfirewall firewall add rule name="Gambiarra" dir=in action=allow protocol=TCP localport=3000
+```
+
+## Debugging Tools
+
+### Enable Debug Logging
+
+```bash
+# Set environment variable for verbose output
+export DEBUG=gambiarra:*
+gambiarra serve
+```
+
+### Monitor SSE Events
+
+Watch real-time events from a room:
+
+```bash
+curl -N http://localhost:3000/rooms/ABC123/events
+```
+
+### Inspect Hub State
+
+```bash
+# List all rooms
+curl http://localhost:3000/rooms
+
+# Get room participants
+curl http://localhost:3000/rooms/ABC123/participants
+
+# Check available models
+curl http://localhost:3000/rooms/ABC123/v1/models
+```
+
+### Network Diagnostics
+
+```bash
+# Test connectivity from participant to hub
+ping <hub-ip>
+
+# Test TCP connection
+telnet <hub-ip> 3000
+# or
+nc -zv <hub-ip> 3000
+
+# Trace route
+traceroute <hub-ip>
+```
+
+### Check Process Status
+
+```bash
+# List all Gambiarra processes
+ps aux | grep gambiarra
+
+# Check network connections
+lsof -i :3000
+netstat -tlnp | grep :3000
+```
+
+## Getting Help
+
+If you're still experiencing issues:
+
+1. **Check existing GitHub issues**: [github.com/arthurbm/gambiarra/issues](https://github.com/arthurbm/gambiarra/issues)
+2. **Create a new issue** with:
+   - Full error message
+   - Steps to reproduce
+   - Environment details (OS, Bun version, LLM provider)
+   - Output from diagnostic commands
+3. **Join the community** for real-time help
+
+## Known Limitations
+
+These are not bugs but design limitations:
+
+- **No persistent storage**: Rooms exist only in memory
+- **No authentication**: Designed for trusted networks
+- **No rate limiting**: Can be abused without proxy
+- **No load balancing**: Participants selected randomly
+- **No request queuing**: Busy participants may reject requests
+
+See the [Roadmap](https://github.com/arthurbm/gambiarra#-roadmap) for planned improvements.

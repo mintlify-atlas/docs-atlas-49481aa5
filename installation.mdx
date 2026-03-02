@@ -1,0 +1,382 @@
+---
+title: Installation
+description: Install the Gambiarra CLI and SDK for your environment
+---
+
+Gambiarra consists of two main packages:
+
+- **CLI** (`gambiarra`) - Command-line tool for managing hubs and participants
+- **SDK** (`gambiarra-sdk`) - TypeScript library for integrating with the Vercel AI SDK
+
+## CLI installation
+
+The CLI allows you to start hubs, create rooms, and join as a participant.
+
+<Note>
+  The standalone binary installation via curl is recommended as it requires no additional dependencies.
+</Note>
+
+<Tabs>
+  <Tab title="curl (recommended)">
+    Install the standalone binary:
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/arthurbm/gambiarra/main/scripts/install.sh | bash
+    ```
+
+    This installs a single binary to `/usr/local/bin/gambiarra` with no dependencies.
+  </Tab>
+
+  <Tab title="npm">
+    Install globally via npm:
+
+    ```bash
+    npm install -g gambiarra
+    ```
+  </Tab>
+
+  <Tab title="bun">
+    Install globally via Bun:
+
+    ```bash
+    bun add -g gambiarra
+    ```
+  </Tab>
+</Tabs>
+
+### Verify installation
+
+Check that the CLI is installed correctly:
+
+```bash
+gambiarra --version
+```
+
+You should see the version number printed to the console.
+
+### Getting help
+
+View available commands:
+
+```bash
+gambiarra --help
+```
+
+View help for a specific command:
+
+```bash
+gambiarra serve --help
+gambiarra create --help
+gambiarra join --help
+gambiarra list --help
+```
+
+## SDK installation
+
+The SDK provides Vercel AI SDK integration for using shared LLMs in your applications.
+
+<CodeGroup>
+```bash npm
+npm install gambiarra-sdk ai
+```
+
+```bash bun
+bun add gambiarra-sdk ai
+```
+
+```bash pnpm
+pnpm add gambiarra-sdk ai
+```
+
+```bash yarn
+yarn add gambiarra-sdk ai
+```
+</CodeGroup>
+
+<Note>
+  The `ai` package (Vercel AI SDK) is a peer dependency required for the SDK to work.
+</Note>
+
+### Basic usage
+
+Once installed, you can use the SDK in your TypeScript/JavaScript applications:
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({
+  roomCode: "ABC123",
+  hubUrl: "http://localhost:3000", // optional, defaults to localhost:3000
+});
+
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Hello, Gambiarra!",
+});
+
+console.log(result.text);
+```
+
+## Uninstall
+
+### Uninstall CLI
+
+Remove the CLI based on how you installed it:
+
+<Tabs>
+  <Tab title="curl">
+    Remove the standalone binary:
+
+    ```bash
+    sudo rm /usr/local/bin/gambiarra
+    ```
+  </Tab>
+
+  <Tab title="npm">
+    Uninstall the global package:
+
+    ```bash
+    npm uninstall -g gambiarra
+    ```
+  </Tab>
+
+  <Tab title="bun">
+    Remove the global package:
+
+    ```bash
+    bun remove -g gambiarra
+    ```
+  </Tab>
+</Tabs>
+
+### Uninstall SDK
+
+Remove the SDK from your project:
+
+<CodeGroup>
+```bash npm
+npm uninstall gambiarra-sdk
+```
+
+```bash bun
+bun remove gambiarra-sdk
+```
+
+```bash pnpm
+pnpm remove gambiarra-sdk
+```
+
+```bash yarn
+yarn remove gambiarra-sdk
+```
+</CodeGroup>
+
+## Requirements
+
+### CLI requirements
+
+- **No dependencies** when using the standalone binary (curl installation)
+- **Node.js 18+** or **Bun 1.0+** when using npm/bun installation
+- **Linux**, **macOS**, or **Windows** (via WSL)
+
+### SDK requirements
+
+- **Node.js 18+** or **Bun 1.0+**
+- **Vercel AI SDK** (`ai` package) version 3.0 or higher
+
+## Platform-specific notes
+
+### macOS
+
+The CLI works out of the box on macOS. If you install via curl, you may need to grant execute permissions:
+
+```bash
+chmod +x /usr/local/bin/gambiarra
+```
+
+For mDNS support, no additional setup is required as Bonjour is built into macOS.
+
+### Linux
+
+For mDNS support on Linux, you need Avahi:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install avahi-daemon avahi-utils
+
+# Fedora/RHEL
+sudo dnf install avahi avahi-tools
+
+# Arch Linux
+sudo pacman -S avahi
+```
+
+Start the Avahi daemon:
+
+```bash
+sudo systemctl start avahi-daemon
+sudo systemctl enable avahi-daemon
+```
+
+### Windows
+
+Windows support is available through **WSL (Windows Subsystem for Linux)**:
+
+1. Install WSL 2: https://docs.microsoft.com/en-us/windows/wsl/install
+2. Install Ubuntu or your preferred Linux distribution
+3. Follow the Linux installation instructions above
+
+<Warning>
+  Native Windows support is not currently available. Please use WSL.
+</Warning>
+
+## Updating
+
+### Update CLI
+
+<Tabs>
+  <Tab title="curl">
+    Re-run the installation script:
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/arthurbm/gambiarra/main/scripts/install.sh | bash
+    ```
+  </Tab>
+
+  <Tab title="npm">
+    Update the global package:
+
+    ```bash
+    npm update -g gambiarra
+    ```
+  </Tab>
+
+  <Tab title="bun">
+    Update the global package:
+
+    ```bash
+    bun update -g gambiarra
+    ```
+  </Tab>
+</Tabs>
+
+### Update SDK
+
+Update the SDK in your project:
+
+<CodeGroup>
+```bash npm
+npm update gambiarra-sdk
+```
+
+```bash bun
+bun update gambiarra-sdk
+```
+
+```bash pnpm
+pnpm update gambiarra-sdk
+```
+
+```bash yarn
+yarn upgrade gambiarra-sdk
+```
+</CodeGroup>
+
+## Troubleshooting
+
+### CLI not found after installation
+
+If the `gambiarra` command is not found after installation:
+
+1. **Check your PATH** - Ensure `/usr/local/bin` is in your PATH:
+   ```bash
+   echo $PATH | grep /usr/local/bin
+   ```
+
+2. **Reload your shell** - Close and reopen your terminal, or run:
+   ```bash
+   source ~/.bashrc  # or ~/.zshrc for zsh
+   ```
+
+3. **Verify the binary exists**:
+   ```bash
+   ls -la /usr/local/bin/gambiarra
+   ```
+
+### Permission denied
+
+If you get a permission denied error when installing via curl:
+
+```bash
+# The install script needs sudo access to write to /usr/local/bin
+# Make sure you're running the script with appropriate permissions
+curl -fsSL https://raw.githubusercontent.com/arthurbm/gambiarra/main/scripts/install.sh | sudo bash
+```
+
+### SDK import errors
+
+If you get import errors with the SDK:
+
+1. **Check that `ai` is installed** - The Vercel AI SDK is a peer dependency:
+   ```bash
+   npm list ai
+   ```
+
+2. **Ensure TypeScript is configured** - Add to your `tsconfig.json`:
+   ```json
+   {
+     "compilerOptions": {
+       "moduleResolution": "bundler",
+       "module": "ESNext",
+       "target": "ES2022"
+     }
+   }
+   ```
+
+3. **Check Node.js version** - Ensure you're running Node.js 18 or higher:
+   ```bash
+   node --version
+   ```
+
+### mDNS not working
+
+If mDNS discovery isn't working:
+
+- **On Linux**: Install and start Avahi (see Linux section above)
+- **On macOS**: mDNS should work out of the box
+- **Firewall**: Ensure UDP port 5353 is not blocked
+- **Network**: Both hub and clients must be on the same local network
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running with Gambiarra
+  </Card>
+  <Card
+    title="CLI reference"
+    icon="terminal"
+    href="/cli/serve"
+  >
+    Learn about all CLI commands
+  </Card>
+  <Card
+    title="SDK reference"
+    icon="code"
+    href="/sdk/overview"
+  >
+    Use Gambiarra in your apps
+  </Card>
+  <Card
+    title="Troubleshooting"
+    icon="wrench"
+    href="/advanced/troubleshooting"
+  >
+    Common issues and solutions
+  </Card>
+</CardGroup>

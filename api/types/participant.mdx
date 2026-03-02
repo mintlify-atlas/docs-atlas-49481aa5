@@ -1,0 +1,219 @@
+---
+title: Participant
+description: Participant types and interfaces for LLM endpoint sharing in Gambiarra
+---
+
+# Participant Types
+
+Participant types define the structure for endpoints sharing LLM access within rooms.
+
+## ParticipantInfo
+
+Complete participant information including endpoint, model, specs, and status.
+
+```typescript
+import { z } from "zod";
+
+const ParticipantInfo = z.object({
+  id: z.string(),
+  nickname: z.string(),
+  model: z.string(),
+  endpoint: z.string().url(),
+  config: GenerationConfig,
+  specs: MachineSpecs,
+  status: ParticipantStatus,
+  joinedAt: z.number(),
+  lastSeen: z.number(),
+});
+
+type ParticipantInfo = z.infer<typeof ParticipantInfo>;
+```
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the participant
+</ResponseField>
+
+<ResponseField name="nickname" type="string" required>
+  Display name chosen by the participant
+</ResponseField>
+
+<ResponseField name="model" type="string" required>
+  Name of the LLM model being shared (e.g., "llama3:8b", "gpt-4")
+</ResponseField>
+
+<ResponseField name="endpoint" type="string" required>
+  OpenAI-compatible API endpoint URL (Ollama, LM Studio, etc.)
+</ResponseField>
+
+<ResponseField name="config" type="GenerationConfig" required>
+  Generation parameters for this participant's model. See [GenerationConfig](#generationconfig).
+</ResponseField>
+
+<ResponseField name="specs" type="MachineSpecs" required>
+  Hardware specifications of the participant's machine. See [MachineSpecs](#machinespecs).
+</ResponseField>
+
+<ResponseField name="status" type="ParticipantStatus" required>
+  Current availability status: `"online"`, `"busy"`, or `"offline"`
+</ResponseField>
+
+<ResponseField name="joinedAt" type="number" required>
+  Unix timestamp (milliseconds) when the participant joined the room
+</ResponseField>
+
+<ResponseField name="lastSeen" type="number" required>
+  Unix timestamp (milliseconds) of the last health check
+</ResponseField>
+
+## ParticipantStatus
+
+Enum representing the availability status of a participant.
+
+```typescript
+const ParticipantStatus = z.enum(["online", "busy", "offline"]);
+
+type ParticipantStatus = z.infer<typeof ParticipantStatus>;
+```
+
+- `"online"` - Participant is available and can accept requests
+- `"busy"` - Participant is currently processing a request
+- `"offline"` - Participant has not sent a health check within the timeout period
+
+## MachineSpecs
+
+Hardware specifications for a participant's machine.
+
+```typescript
+const MachineSpecs = z.object({
+  gpu: z.string().optional(),
+  vram: z.number().optional(),
+  ram: z.number().optional(),
+  cpu: z.string().optional(),
+});
+
+type MachineSpecs = z.infer<typeof MachineSpecs>;
+```
+
+<ResponseField name="gpu" type="string">
+  GPU model (e.g., "NVIDIA RTX 4090")
+</ResponseField>
+
+<ResponseField name="vram" type="number">
+  Video RAM in GB
+</ResponseField>
+
+<ResponseField name="ram" type="number">
+  System RAM in GB
+</ResponseField>
+
+<ResponseField name="cpu" type="string">
+  CPU model (e.g., "AMD Ryzen 9 7950X")
+</ResponseField>
+
+## GenerationConfig
+
+Generation parameters compatible with OpenAI-like APIs. These are the common parameters supported by most providers.
+
+```typescript
+const GenerationConfig = z.object({
+  temperature: z.number().min(0).max(2).optional(),
+  top_p: z.number().min(0).max(1).optional(),
+  max_tokens: z.number().optional(),
+  stop: z.array(z.string()).optional(),
+  frequency_penalty: z.number().min(-2).max(2).optional(),
+  presence_penalty: z.number().min(-2).max(2).optional(),
+  seed: z.number().optional(),
+});
+
+type GenerationConfig = z.infer<typeof GenerationConfig>;
+```
+
+<ResponseField name="temperature" type="number">
+  Sampling temperature between 0 and 2. Higher values make output more random.
+</ResponseField>
+
+<ResponseField name="top_p" type="number">
+  Nucleus sampling parameter between 0 and 1
+</ResponseField>
+
+<ResponseField name="max_tokens" type="number">
+  Maximum number of tokens to generate
+</ResponseField>
+
+<ResponseField name="stop" type="string[]">
+  Array of sequences where generation will stop
+</ResponseField>
+
+<ResponseField name="frequency_penalty" type="number">
+  Penalty for token frequency between -2 and 2
+</ResponseField>
+
+<ResponseField name="presence_penalty" type="number">
+  Penalty for token presence between -2 and 2
+</ResponseField>
+
+<ResponseField name="seed" type="number">
+  Random seed for deterministic generation
+</ResponseField>
+
+## Health Check Constants
+
+Constants that control participant health monitoring.
+
+```typescript
+// Health check interval in milliseconds
+export const HEALTH_CHECK_INTERVAL = 10_000;
+
+// Time after which a participant is considered offline (3 missed health checks)
+export const PARTICIPANT_TIMEOUT = HEALTH_CHECK_INTERVAL * 3; // 30_000
+```
+
+<ResponseField name="HEALTH_CHECK_INTERVAL" type="number" default="10000">
+  Interval in milliseconds between health checks (10 seconds)
+</ResponseField>
+
+<ResponseField name="PARTICIPANT_TIMEOUT" type="number" default="30000">
+  Timeout in milliseconds before marking a participant as offline (30 seconds, or 3 missed health checks)
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import {
+  ParticipantInfo,
+  ParticipantStatus,
+  MachineSpecs,
+  GenerationConfig,
+} from "@gambiarra/core";
+
+const participant: ParticipantInfo = {
+  id: "participant_abc123",
+  nickname: "Alice's MacBook",
+  model: "llama3:8b",
+  endpoint: "http://localhost:11434/v1",
+  config: {
+    temperature: 0.7,
+    max_tokens: 2048,
+  },
+  specs: {
+    gpu: "Apple M2 Max",
+    vram: 32,
+    ram: 64,
+    cpu: "Apple M2 Max",
+  },
+  status: "online",
+  joinedAt: Date.now(),
+  lastSeen: Date.now(),
+};
+
+// Check if participant is available
+if (participant.status === "online") {
+  console.log(`${participant.nickname} is available`);
+}
+```
+
+## Related Types
+
+- [RoomInfo](/api/types/room) - Room metadata where participants join
+- [Protocol Messages](/api/types/protocol) - Participant-related SSE events
+- [LlmMetrics](/api/types/protocol#llmmetrics) - Metrics for LLM requests

@@ -1,0 +1,255 @@
+---
+title: monitor
+description: Open TUI to monitor rooms in real-time
+---
+
+The `monitor` command launches an interactive Terminal User Interface (TUI) that displays real-time information about rooms, participants, and activity on a Gambiarra hub.
+
+## Usage
+
+```bash
+gambiarra monitor [options]
+```
+
+## Options
+
+<ParamField path="--hub" type="string" default="http://localhost:3000">
+  Hub URL to connect to. Also accepts `-h` shorthand.
+  
+  ```bash
+  gambiarra monitor --hub http://192.168.1.10:3000
+  ```
+</ParamField>
+
+## Examples
+
+### Monitor local hub
+
+Launch the TUI for the default local hub:
+
+```bash
+gambiarra monitor
+```
+
+This opens an interactive terminal interface showing:
+- List of active rooms
+- Participants in each room
+- Real-time events and activity
+- Connection status
+
+### Monitor remote hub
+
+Connect to a hub on a different machine:
+
+```bash
+gambiarra monitor --hub http://192.168.1.10:3000
+```
+
+### Monitor with shorthand
+
+```bash
+gambiarra monitor -h http://192.168.1.10:3000
+```
+
+## TUI features
+
+The TUI provides a rich interface for monitoring hub activity:
+
+### Real-time updates
+
+The interface automatically updates to show:
+- New rooms being created
+- Participants joining and leaving
+- Chat completions and model requests
+- Health check status
+- Connection events
+
+### Room overview
+
+For each room, you can see:
+- Room code and name
+- Number of active participants
+- Creation timestamp
+- Current activity
+
+### Participant details
+
+View information about each participant:
+- Nickname
+- Model being shared
+- Endpoint URL
+- System specifications (if shared)
+- Connection status
+- Last health check
+
+### Event stream
+
+Monitor events in real-time:
+- Room creation
+- Participant joins
+- Participant leaves
+- Chat completions
+- Health checks
+- Errors and warnings
+
+<Note>
+  The TUI connects to the hub's Server-Sent Events (SSE) endpoint at `/rooms/{code}/events` to receive real-time updates.
+</Note>
+
+## Navigation
+
+Use keyboard controls to navigate the TUI:
+
+- **Arrow keys**: Navigate between rooms and participants
+- **Tab**: Switch between panels
+- **Enter**: View details
+- **q** or **Ctrl+C**: Exit the TUI
+
+<Note>
+  Exact keyboard shortcuts may vary based on the TUI implementation. Check the on-screen help for available commands.
+</Note>
+
+## Use cases
+
+### Monitor room activity
+
+Keep an eye on what's happening in your rooms:
+
+```bash
+gambiarra monitor
+```
+
+### Debug connectivity issues
+
+Watch health checks to identify participants with connection problems:
+
+```bash
+gambiarra monitor
+```
+
+Look for:
+- Failed health checks
+- Participant timeouts
+- Disconnection events
+
+### Track model usage
+
+See which models are being used and how often:
+
+```bash
+gambiarra monitor
+```
+
+Watch the event stream for chat completion requests.
+
+### Manage hub resources
+
+Monitor the hub to understand:
+- How many rooms are active
+- Total participant count
+- Resource usage patterns
+- Peak activity times
+
+## How it works
+
+1. The monitor connects to the hub at the specified URL
+2. Subscribes to the SSE event stream for real-time updates
+3. Queries the hub API for initial room and participant data
+4. Continuously updates the display as events arrive
+5. Maintains connection until you exit
+
+## Error handling
+
+### Hub not reachable
+
+If the hub is not running:
+
+```bash
+gambiarra monitor --hub http://192.168.1.999:3000
+```
+
+The TUI will display a connection error and exit.
+
+<Note>
+  Make sure the hub is running with [`gambiarra serve`](/cli/serve) before monitoring.
+</Note>
+
+### Connection lost
+
+If connection to the hub is lost during monitoring:
+- The TUI will attempt to reconnect
+- A connection status indicator will show the error
+- You may need to restart the monitor if reconnection fails
+
+## Performance considerations
+
+### Resource usage
+
+The TUI is lightweight but:
+- Uses a persistent SSE connection to the hub
+- Updates the display in real-time
+- May consume more CPU with many active rooms
+
+### Refresh rate
+
+The display updates:
+- Immediately when events arrive via SSE
+- Continuously for status indicators
+- Efficiently without polling
+
+## Advanced usage
+
+### Monitor multiple hubs
+
+Open multiple terminals to monitor different hubs:
+
+```bash
+# Terminal 1
+gambiarra monitor --hub http://hub1.local:3000
+
+# Terminal 2
+gambiarra monitor --hub http://hub2.local:3000
+```
+
+### Combine with other commands
+
+Run monitor in one terminal while operating in another:
+
+```bash
+# Terminal 1: Monitor
+gambiarra monitor
+
+# Terminal 2: Join room
+gambiarra join --code ABC123 --model llama3
+
+# Terminal 3: Create new room
+gambiarra create --name "New Room"
+```
+
+## TUI technology
+
+The monitor is built with:
+- **OpenTUI**: Terminal UI framework
+- **React**: Component-based UI
+- **SSE**: Server-Sent Events for real-time updates
+
+<Note>
+  The TUI runs in your terminal and requires a terminal that supports advanced features like colors and cursor positioning.
+</Note>
+
+## Related commands
+
+- [`serve`](/cli/serve) - Start the hub server to monitor
+- [`list`](/cli/list) - List rooms in a simpler format
+- [`join`](/cli/join) - Join a room as a participant
+- [`create`](/cli/create) - Create a new room
+
+## Next steps
+
+Using the monitor:
+
+1. [Start a hub](/cli/serve) if one isn't running
+2. Launch the monitor to watch activity
+3. [Create rooms](/cli/create) and see them appear
+4. Watch as [participants join](/cli/join)
+5. Monitor events and health checks in real-time

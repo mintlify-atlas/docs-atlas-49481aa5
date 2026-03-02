@@ -1,0 +1,761 @@
+---
+title: API Reference
+description: Complete API documentation for the Gambiarra SDK
+---
+
+Comprehensive reference for all exported functions, types, and interfaces in the Gambiarra SDK.
+
+## createGambiarra()
+
+Creates a Gambiarra provider for use with Vercel AI SDK.
+
+```typescript
+function createGambiarra(options: GambiarraOptions): GambiarraProvider
+```
+
+### Parameters
+
+<ParamField path="options" type="GambiarraOptions" required>
+  Configuration options for the provider
+  
+  <Expandable title="GambiarraOptions">
+    <ParamField path="roomCode" type="string" required>
+      The 6-character room code to connect to
+    </ParamField>
+    
+    <ParamField path="hubUrl" type="string" default="http://localhost:3000">
+      Base URL of the Gambiarra hub
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Returns
+
+<ResponseField name="GambiarraProvider" type="object">
+  Provider interface with routing methods and utilities
+  
+  <Expandable title="GambiarraProvider">
+    <ResponseField name="participant" type="(id: string) => LanguageModel">
+      Route to a specific participant by ID
+    </ResponseField>
+    
+    <ResponseField name="model" type="(name: string) => LanguageModel">
+      Route to the first participant running the specified model
+    </ResponseField>
+    
+    <ResponseField name="any" type="() => LanguageModel">
+      Route to any random online participant
+    </ResponseField>
+    
+    <ResponseField name="listParticipants" type="() => Promise<ParticipantInfo[]>">
+      List all participants in the room
+    </ResponseField>
+    
+    <ResponseField name="listModels" type="() => Promise<GambiarraModel[]>">
+      List available models in OpenAI-compatible format
+    </ResponseField>
+    
+    <ResponseField name="baseURL" type="string">
+      Base URL for direct OpenAI-compatible API access
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Hello!",
+});
+```
+
+---
+
+## Provider Methods
+
+### participant()
+
+Route requests to a specific participant by ID.
+
+```typescript
+participant(id: string): LanguageModel
+```
+
+<ParamField path="id" type="string" required>
+  The unique identifier of the participant
+</ParamField>
+
+#### Example
+
+```typescript
+const result = await generateText({
+  model: gambiarra.participant("participant-123"),
+  prompt: "Route to specific machine",
+});
+```
+
+---
+
+### model()
+
+Route requests to the first online participant running the specified model.
+
+```typescript
+model(name: string): LanguageModel
+```
+
+<ParamField path="name" type="string" required>
+  The model name to match (e.g., "llama3", "gpt-4")
+</ParamField>
+
+#### Example
+
+```typescript
+const result = await generateText({
+  model: gambiarra.model("llama3"),
+  prompt: "Use Llama 3 model",
+});
+```
+
+<Info>
+  The model name is prefixed with `model:` internally, so `gambiarra.model("llama3")` becomes `model:llama3` in the routing layer.
+</Info>
+
+---
+
+### any()
+
+Route requests to any random online participant.
+
+```typescript
+any(): LanguageModel
+```
+
+#### Example
+
+```typescript
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Use any available participant",
+});
+```
+
+<Info>
+  Internally uses the model ID `*` which the hub interprets as "any random online participant".
+</Info>
+
+---
+
+### listParticipants()
+
+Retrieve all participants in the room.
+
+```typescript
+listParticipants(): Promise<ParticipantInfo[]>
+```
+
+#### Returns
+
+<ResponseField name="participants" type="ParticipantInfo[]">
+  Array of participant information objects
+  
+  <Expandable title="ParticipantInfo">
+    <ResponseField name="id" type="string">
+      Unique participant identifier
+    </ResponseField>
+    
+    <ResponseField name="nickname" type="string">
+      Human-readable participant name
+    </ResponseField>
+    
+    <ResponseField name="model" type="string">
+      Model name (e.g., "llama3", "gpt-4")
+    </ResponseField>
+    
+    <ResponseField name="endpoint" type="string">
+      OpenAI-compatible endpoint URL
+    </ResponseField>
+    
+    <ResponseField name="status" type="'online' | 'offline'">
+      Current online status
+    </ResponseField>
+    
+    <ResponseField name="lastSeen" type="number">
+      Timestamp of last health check (Unix milliseconds)
+    </ResponseField>
+    
+    <ResponseField name="specs" type="MachineSpecs" optional>
+      Hardware specifications
+      
+      <Expandable title="MachineSpecs">
+        <ResponseField name="gpu" type="string" optional>
+          GPU model (e.g., "RTX 4090")
+        </ResponseField>
+        
+        <ResponseField name="vram" type="number" optional>
+          VRAM in GB
+        </ResponseField>
+        
+        <ResponseField name="ram" type="number" optional>
+          System RAM in GB
+        </ResponseField>
+        
+        <ResponseField name="cpu" type="string" optional>
+          CPU model
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="config" type="GenerationConfig" optional>
+      Default generation configuration
+      
+      <Expandable title="GenerationConfig">
+        <ResponseField name="temperature" type="number" optional>
+          Sampling temperature (0.0 to 2.0)
+        </ResponseField>
+        
+        <ResponseField name="max_tokens" type="number" optional>
+          Maximum tokens to generate
+        </ResponseField>
+        
+        <ResponseField name="top_p" type="number" optional>
+          Nucleus sampling threshold
+        </ResponseField>
+        
+        <ResponseField name="frequency_penalty" type="number" optional>
+          Frequency penalty (-2.0 to 2.0)
+        </ResponseField>
+        
+        <ResponseField name="presence_penalty" type="number" optional>
+          Presence penalty (-2.0 to 2.0)
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Example
+
+```typescript
+const participants = await gambiarra.listParticipants();
+
+participants.forEach((p) => {
+  console.log(`${p.nickname}: ${p.status}`);
+  if (p.specs) {
+    console.log(`  GPU: ${p.specs.gpu}, VRAM: ${p.specs.vram}GB`);
+  }
+});
+```
+
+---
+
+### listModels()
+
+Retrieve available models in OpenAI-compatible format.
+
+```typescript
+listModels(): Promise<GambiarraModel[]>
+```
+
+#### Returns
+
+<ResponseField name="models" type="GambiarraModel[]">
+  Array of model information objects
+  
+  <Expandable title="GambiarraModel">
+    <ResponseField name="id" type="string">
+      Model identifier (participant ID in Gambiarra)
+    </ResponseField>
+    
+    <ResponseField name="nickname" type="string">
+      Participant nickname
+    </ResponseField>
+    
+    <ResponseField name="model" type="string">
+      Actual model name (e.g., "llama3")
+    </ResponseField>
+    
+    <ResponseField name="endpoint" type="string">
+      OpenAI-compatible endpoint URL
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Example
+
+```typescript
+const models = await gambiarra.listModels();
+
+models.forEach((m) => {
+  console.log(`${m.id}: ${m.model} at ${m.endpoint}`);
+});
+```
+
+---
+
+## HTTP Client
+
+### createClient()
+
+Create an HTTP client for managing rooms and participants.
+
+```typescript
+function createClient(options?: ClientOptions): GambiarraClient
+```
+
+#### Parameters
+
+<ParamField path="options" type="ClientOptions">
+  Client configuration options
+  
+  <Expandable title="ClientOptions">
+    <ParamField path="hubUrl" type="string" default="http://localhost:3000">
+      Base URL of the Gambiarra hub
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+#### Returns
+
+<ResponseField name="GambiarraClient" type="object">
+  Client interface with room and participant management methods
+</ResponseField>
+
+#### Example
+
+```typescript
+import { createClient } from "gambiarra-sdk";
+
+const client = createClient({ hubUrl: "http://hub.local:3000" });
+```
+
+---
+
+## Client Methods
+
+### create()
+
+Create a new room.
+
+```typescript
+create(name: string, password?: string): Promise<CreateRoomResponse>
+```
+
+<ParamField path="name" type="string" required>
+  Human-readable room name
+</ParamField>
+
+<ParamField path="password" type="string">
+  Optional password for room protection
+</ParamField>
+
+#### Returns
+
+<ResponseField name="response" type="CreateRoomResponse">
+  <Expandable title="CreateRoomResponse">
+    <ResponseField name="room" type="RoomInfo">
+      Created room information
+      
+      <Expandable title="RoomInfo">
+        <ResponseField name="id" type="string">
+          Unique room identifier
+        </ResponseField>
+        
+        <ResponseField name="code" type="string">
+          6-character room code
+        </ResponseField>
+        
+        <ResponseField name="name" type="string">
+          Room name
+        </ResponseField>
+        
+        <ResponseField name="createdAt" type="number">
+          Creation timestamp (Unix milliseconds)
+        </ResponseField>
+        
+        <ResponseField name="participantCount" type="number">
+          Number of participants in the room
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="hostId" type="string">
+      ID of the host participant
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Example
+
+```typescript
+const { room, hostId } = await client.create("My Room", "secret123");
+console.log(`Created room: ${room.code}`);
+```
+
+---
+
+### list()
+
+List all rooms on the hub.
+
+```typescript
+list(): Promise<RoomInfo[]>
+```
+
+#### Returns
+
+<ResponseField name="rooms" type="RoomInfo[]">
+  Array of room information objects
+</ResponseField>
+
+#### Example
+
+```typescript
+const rooms = await client.list();
+rooms.forEach((r) => {
+  console.log(`${r.name} (${r.code}): ${r.participantCount} participants`);
+});
+```
+
+---
+
+### join()
+
+Join a room as a participant.
+
+```typescript
+join(
+  code: string,
+  participant: CreateParticipantOptions
+): Promise<JoinRoomResponse>
+```
+
+<ParamField path="code" type="string" required>
+  6-character room code
+</ParamField>
+
+<ParamField path="participant" type="CreateParticipantOptions" required>
+  Participant configuration
+  
+  <Expandable title="CreateParticipantOptions">
+    <ParamField path="id" type="string" required>
+      Unique participant identifier
+    </ParamField>
+    
+    <ParamField path="nickname" type="string" required>
+      Human-readable participant name
+    </ParamField>
+    
+    <ParamField path="model" type="string" required>
+      Model name (e.g., "llama3")
+    </ParamField>
+    
+    <ParamField path="endpoint" type="string" required>
+      OpenAI-compatible endpoint URL
+    </ParamField>
+    
+    <ParamField path="password" type="string">
+      Room password (required if room is protected)
+    </ParamField>
+    
+    <ParamField path="specs" type="MachineSpecs">
+      Hardware specifications
+    </ParamField>
+    
+    <ParamField path="config" type="GenerationConfig">
+      Default generation configuration
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+#### Returns
+
+<ResponseField name="response" type="JoinRoomResponse">
+  <Expandable title="JoinRoomResponse">
+    <ResponseField name="participant" type="ParticipantInfo">
+      Created participant information
+    </ResponseField>
+    
+    <ResponseField name="roomId" type="string">
+      Room identifier
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Example
+
+```typescript
+const { participant, roomId } = await client.join("ABC123", {
+  id: "my-bot",
+  nickname: "My Ollama",
+  model: "llama3",
+  endpoint: "http://localhost:11434",
+  specs: {
+    gpu: "RTX 4090",
+    vram: 24,
+  },
+});
+```
+
+---
+
+### leave()
+
+Leave a room.
+
+```typescript
+leave(code: string, participantId: string): Promise<{ success: boolean }>
+```
+
+<ParamField path="code" type="string" required>
+  6-character room code
+</ParamField>
+
+<ParamField path="participantId" type="string" required>
+  Participant ID to remove
+</ParamField>
+
+#### Example
+
+```typescript
+await client.leave("ABC123", "my-bot");
+console.log("Left the room");
+```
+
+---
+
+### getParticipants()
+
+Get all participants in a room.
+
+```typescript
+getParticipants(code: string): Promise<ParticipantInfo[]>
+```
+
+<ParamField path="code" type="string" required>
+  6-character room code
+</ParamField>
+
+#### Example
+
+```typescript
+const participants = await client.getParticipants("ABC123");
+console.log(`${participants.length} participants in room`);
+```
+
+---
+
+### healthCheck()
+
+Send a health check for a participant.
+
+```typescript
+healthCheck(
+  code: string,
+  participantId: string
+): Promise<{ success: boolean }>
+```
+
+<ParamField path="code" type="string" required>
+  6-character room code
+</ParamField>
+
+<ParamField path="participantId" type="string" required>
+  Participant ID sending the health check
+</ParamField>
+
+<Info>
+  Health checks should be sent every 10 seconds. Participants are marked offline after 30 seconds of inactivity.
+</Info>
+
+#### Example
+
+```typescript
+setInterval(async () => {
+  await client.healthCheck("ABC123", "my-bot");
+}, 10_000);
+```
+
+---
+
+## Error Classes
+
+### ClientError
+
+Error thrown when HTTP client requests fail.
+
+```typescript
+class ClientError extends Error {
+  readonly status: number;
+  readonly response?: unknown;
+}
+```
+
+<ParamField path="status" type="number">
+  HTTP status code
+</ParamField>
+
+<ParamField path="response" type="unknown">
+  Original response data from the server
+</ParamField>
+
+#### Example
+
+```typescript
+import { ClientError } from "gambiarra-sdk";
+
+try {
+  await client.join("INVALID", participant);
+} catch (error) {
+  if (error instanceof ClientError) {
+    console.error(`HTTP ${error.status}: ${error.message}`);
+    console.error("Response:", error.response);
+  }
+}
+```
+
+---
+
+## Type Exports
+
+All core types from `@gambiarra/core` are re-exported:
+
+```typescript
+import type {
+  // Room types
+  RoomInfo,
+  
+  // Participant types
+  ParticipantInfo,
+  ParticipantStatus,
+  
+  // Configuration types
+  GenerationConfig,
+  MachineSpecs,
+  HubConfig,
+  NetworkConfig,
+  OllamaConfig,
+  
+  // Chat types
+  ChatCompletion,
+  ChatCompletionChunk,
+  ChatCompletionMessage,
+  ChatCompletionMessageParam,
+  ChatCompletionCreateParams,
+  
+  // Model types
+  Model,
+  ModelDeleted,
+  LlmMetrics,
+} from "gambiarra-sdk";
+```
+
+---
+
+## Schema Exports
+
+Zod schemas for runtime validation (exported with `Schema` suffix):
+
+```typescript
+import {
+  ParticipantInfoSchema,
+  RoomInfoSchema,
+  GenerationConfigSchema,
+  MachineSpecsSchema,
+  HubConfigSchema,
+  NetworkConfigSchema,
+  OllamaConfigSchema,
+  ParticipantStatusSchema,
+  LlmMetricsSchema,
+} from "gambiarra-sdk";
+
+// Validate at runtime
+const result = ParticipantInfoSchema.parse(data);
+```
+
+---
+
+## Constants
+
+Exported timing constants:
+
+```typescript
+import {
+  HEALTH_CHECK_INTERVAL,
+  PARTICIPANT_TIMEOUT,
+} from "gambiarra-sdk";
+
+console.log(HEALTH_CHECK_INTERVAL); // 10000 (10 seconds)
+console.log(PARTICIPANT_TIMEOUT);   // 30000 (30 seconds)
+```
+
+---
+
+## Namespaces
+
+Re-exported namespaces from `@gambiarra/core`:
+
+### rooms
+
+```typescript
+import { rooms } from "gambiarra-sdk";
+
+// Room management
+const room = rooms.create("Room Name", "host-id");
+const room = rooms.get(id);
+const room = rooms.getByCode(code);
+const allRooms = rooms.list();
+rooms.remove(id);
+
+// Participant management
+rooms.addParticipant(roomId, participant);
+rooms.removeParticipant(roomId, participantId);
+const participants = rooms.getParticipants(roomId);
+```
+
+### participants
+
+```typescript
+import { participants } from "gambiarra-sdk";
+
+const participant = participants.create({
+  nickname: "Bot",
+  model: "llama3",
+  endpoint: "http://localhost:11434",
+  specs: { gpu: "RTX 4090", vram: 24 },
+});
+```
+
+### hub
+
+```typescript
+import { hub } from "gambiarra-sdk";
+
+const myHub = hub.create({
+  port: 3000,
+  hostname: "0.0.0.0",
+  mdns: true,
+});
+
+console.log(myHub.url); // http://0.0.0.0:3000
+myHub.close();
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Usage Guide" icon="code" href="/sdk/usage">
+    Learn practical usage patterns and examples
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first Gambiarra application
+  </Card>
+</CardGroup>

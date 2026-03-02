@@ -1,0 +1,161 @@
+---
+title: serve
+description: Start the Gambiarra hub server
+---
+
+The `serve` command starts a Gambiarra hub server that manages rooms and coordinates participants in your local network.
+
+## Usage
+
+```bash
+gambiarra serve [options]
+```
+
+## Options
+
+<ParamField path="--port" type="string" default="3000">
+  Port to listen on. Also accepts `-p` shorthand.
+  
+  ```bash
+  gambiarra serve --port 8080
+  ```
+</ParamField>
+
+<ParamField path="--host" type="string" default="0.0.0.0">
+  Host to bind to. Also accepts `-h` shorthand. Use `0.0.0.0` to accept connections from any network interface.
+  
+  ```bash
+  gambiarra serve --host 127.0.0.1
+  ```
+</ParamField>
+
+<ParamField path="--mdns" type="boolean" default="false">
+  Enable mDNS (Bonjour/Zeroconf) for local network discovery. Also accepts `-m` shorthand. When enabled, the hub will be discoverable as `<hostname>.local` on the local network.
+  
+  ```bash
+  gambiarra serve --mdns
+  ```
+</ParamField>
+
+<ParamField path="--quiet" type="boolean" default="false">
+  Suppress logo output. Also accepts `-q` shorthand.
+  
+  ```bash
+  gambiarra serve --quiet
+  ```
+</ParamField>
+
+## Examples
+
+### Start on default port
+
+Start the hub server on the default port 3000:
+
+```bash
+gambiarra serve
+```
+
+**Output:**
+```
+Hub started at http://0.0.0.0:3000
+Health check: http://0.0.0.0:3000/health
+
+Press Ctrl+C to stop
+```
+
+### Start on custom port
+
+Run the hub on port 8080:
+
+```bash
+gambiarra serve --port 8080
+```
+
+### Enable mDNS discovery
+
+Start with mDNS enabled for automatic discovery on the local network:
+
+```bash
+gambiarra serve --mdns
+```
+
+**Output:**
+```
+Hub started at http://0.0.0.0:3000
+Health check: http://0.0.0.0:3000/health
+mDNS: http://your-hostname.local:3000
+      Service: your-hostname._gambiarra._tcp.local
+
+Press Ctrl+C to stop
+```
+
+<Note>
+  The mDNS service name follows the format `<hostname>._gambiarra._tcp.local`
+</Note>
+
+### Bind to localhost only
+
+For security, bind to localhost only to prevent external connections:
+
+```bash
+gambiarra serve --host 127.0.0.1 --port 3000
+```
+
+### Combine multiple options
+
+```bash
+gambiarra serve --port 8080 --mdns --quiet
+```
+
+## How it works
+
+When you start the hub:
+
+1. The server binds to the specified host and port
+2. A health check endpoint becomes available at `/health`
+3. If mDNS is enabled, the service is broadcast on the local network
+4. The hub is ready to accept room creation and participant registration
+5. Press `Ctrl+C` to gracefully shut down the server
+
+<Note>
+  The hub runs indefinitely until you stop it with `Ctrl+C`. Make sure to keep the terminal window open while the hub is serving.
+</Note>
+
+## Error handling
+
+### Invalid port
+
+If you provide an invalid port number:
+
+```bash
+gambiarra serve --port invalid
+```
+
+**Output:**
+```
+Invalid port: invalid
+```
+
+The command exits with code 1.
+
+### Port already in use
+
+If the specified port is already in use, the hub will fail to start. Try a different port:
+
+```bash
+gambiarra serve --port 8081
+```
+
+## Related commands
+
+- [`create`](/cli/create) - Create a new room on the hub
+- [`list`](/cli/list) - List all rooms on the hub
+- [`monitor`](/cli/monitor) - Monitor the hub in real-time with TUI
+
+## Next steps
+
+After starting the hub:
+
+1. [Create a room](/cli/create) where participants can join
+2. Share the room code with participants
+3. [Monitor activity](/cli/monitor) in real-time

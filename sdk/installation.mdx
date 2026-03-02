@@ -1,0 +1,266 @@
+---
+title: Installation
+description: Install and configure the Gambiarra SDK in your project
+---
+
+## Package Manager Installation
+
+Install the SDK using your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install gambiarra-sdk ai
+```
+
+```bash bun
+bun add gambiarra-sdk ai
+```
+
+```bash pnpm
+pnpm add gambiarra-sdk ai
+```
+
+```bash yarn
+yarn add gambiarra-sdk ai
+```
+
+</CodeGroup>
+
+## Peer Dependencies
+
+The Gambiarra SDK requires the following peer dependencies:
+
+<ParamField path="ai" type="string" required>
+  Vercel AI SDK (versions 4.x, 5.x, or 6.x)
+  
+  The AI SDK provides the core functionality for AI completions, streaming, and tool calling.
+</ParamField>
+
+<ParamField path="typescript" type="string">
+  TypeScript 5.x (recommended)
+  
+  While not strictly required at runtime, TypeScript is highly recommended for full type safety.
+</ParamField>
+
+### Install Peer Dependencies
+
+If you don't have the AI SDK installed:
+
+<CodeGroup>
+
+```bash npm
+npm install ai
+```
+
+```bash bun
+bun add ai
+```
+
+```bash pnpm
+pnpm add ai
+```
+
+```bash yarn
+yarn add ai
+```
+
+</CodeGroup>
+
+## TypeScript Configuration
+
+For optimal type checking and import resolution, configure your `tsconfig.json`:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  }
+}
+```
+
+### Key Settings Explained
+
+<AccordionGroup>
+  <Accordion title="moduleResolution: bundler">
+    Use `"bundler"` for modern bundlers (Vite, esbuild, webpack 5+) or `"node16"` for Node.js projects.
+  </Accordion>
+  
+  <Accordion title="strict: true">
+    Enables all strict type-checking options for maximum type safety with the SDK's types.
+  </Accordion>
+  
+  <Accordion title="esModuleInterop: true">
+    Ensures compatibility with CommonJS modules and default imports.
+  </Accordion>
+</AccordionGroup>
+
+## Verify Installation
+
+Create a test file to verify the SDK is installed correctly:
+
+```typescript test-sdk.ts
+import { createGambiarra } from "gambiarra-sdk";
+import type { ParticipantInfo } from "gambiarra-sdk";
+
+console.log("Gambiarra SDK installed successfully!");
+
+// Type check - this should not produce any errors
+const provider = createGambiarra({ roomCode: "TEST" });
+console.log("Base URL:", provider.baseURL);
+```
+
+Run the test:
+
+<CodeGroup>
+
+```bash bun
+bun run test-sdk.ts
+```
+
+```bash node
+npx tsx test-sdk.ts
+```
+
+</CodeGroup>
+
+Expected output:
+```
+Gambiarra SDK installed successfully!
+Base URL: http://localhost:3000/rooms/TEST/v1
+```
+
+## Environment Setup
+
+### Local Development
+
+For local development, ensure you have a Gambiarra hub running:
+
+<CodeGroup>
+
+```bash CLI
+# Install Gambiarra CLI globally
+bun install -g gambiarra
+
+# Start a hub
+gambiarra serve
+```
+
+```typescript SDK
+// Or create a hub programmatically
+import { hub } from "gambiarra-sdk";
+
+const myHub = hub.create({ port: 3000 });
+console.log(`Hub running at ${myHub.url}`);
+```
+
+</CodeGroup>
+
+### Environment Variables
+
+Optionally set the default hub URL via environment variable:
+
+```bash .env
+GAMBIARRA_HUB_URL=http://localhost:3000
+```
+
+Then use it in your code:
+
+```typescript
+const gambiarra = createGambiarra({
+  roomCode: "ABC123",
+  hubUrl: process.env.GAMBIARRA_HUB_URL,
+});
+```
+
+<Note>
+  Bun automatically loads `.env` files. For Node.js, install `dotenv` or use Node 20.6+ with `--env-file` flag.
+</Note>
+
+## Runtime Support
+
+The Gambiarra SDK works with multiple JavaScript runtimes:
+
+<CardGroup cols={3}>
+  <Card title="Bun" icon="rabbit">
+    Fully supported and recommended for best performance
+  </Card>
+  <Card title="Node.js" icon="node-js">
+    Requires Node.js 18+ with native fetch support
+  </Card>
+  <Card title="Edge Runtimes" icon="cloud">
+    Works with Vercel Edge, Cloudflare Workers, Deno
+  </Card>
+</CardGroup>
+
+### Bun (Recommended)
+
+```bash
+bun install gambiarra-sdk ai
+```
+
+Bun provides the fastest installation and runtime performance.
+
+### Node.js
+
+```bash
+node --version  # Ensure v18.0.0 or higher
+npm install gambiarra-sdk ai
+```
+
+<Warning>
+  Node.js versions below 18 do not have native `fetch` support and will require a polyfill.
+</Warning>
+
+### Deno
+
+```typescript
+import { createGambiarra } from "npm:gambiarra-sdk";
+import { generateText } from "npm:ai";
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Module not found: ai">
+    The AI SDK peer dependency is not installed. Run:
+    ```bash
+    npm install ai
+    ```
+  </Accordion>
+  
+  <Accordion title="Type errors with ParticipantInfo">
+    Ensure TypeScript 5.x is installed and `strict: true` is enabled in `tsconfig.json`.
+  </Accordion>
+  
+  <Accordion title="Cannot connect to hub">
+    Verify a Gambiarra hub is running:
+    ```bash
+    curl http://localhost:3000/health
+    ```
+    Expected response: `{"status":"ok"}`
+  </Accordion>
+  
+  <Accordion title="ESM import errors">
+    Ensure your `package.json` has `"type": "module"` or use `.mjs` file extensions.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Usage Guide" icon="code" href="/sdk/usage">
+    Learn how to use the SDK with practical examples
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first Gambiarra application
+  </Card>
+</CardGroup>

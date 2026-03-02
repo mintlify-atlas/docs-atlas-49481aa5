@@ -1,0 +1,174 @@
+---
+title: 'HTTP API Overview'
+description: 'Base URL structure, headers, and error handling for the Gambiarra HTTP API'
+icon: 'globe'
+---
+
+## Base URL
+
+The Gambiarra hub exposes an OpenAI-compatible HTTP API. The base URL depends on your hub configuration:
+
+```bash
+http://{hostname}:{port}
+```
+
+**Default configuration:**
+- Hostname: `0.0.0.0` (listens on all interfaces)
+- Port: `3000`
+- Example: `http://localhost:3000`
+
+## Authentication
+
+The hub currently does **no authentication** at the HTTP level. It is designed for trusted local networks.
+
+**Room-level protection:**
+- Rooms can optionally be password-protected
+- Password is required when joining a protected room via `POST /rooms/:code/join`
+- Passwords are hashed using argon2id before storage
+
+## Common Headers
+
+### Request Headers
+
+```http
+Content-Type: application/json
+```
+
+All POST requests should include `Content-Type: application/json` header.
+
+### Response Headers
+
+All responses include:
+
+```http
+Access-Control-Allow-Origin: *
+```
+
+## CORS Support
+
+The hub supports CORS with the following configuration:
+
+**Preflight requests (OPTIONS):**
+```http
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization
+```
+
+All endpoints accept OPTIONS requests and return 204 No Content.
+
+## Error Response Format
+
+All error responses follow this consistent format:
+
+```json
+{
+  "error": "Error message describing what went wrong"
+}
+```
+
+### Common HTTP Status Codes
+
+<ResponseField name="200" type="OK">
+  Request succeeded
+</ResponseField>
+
+<ResponseField name="201" type="Created">
+  Resource successfully created
+</ResponseField>
+
+<ResponseField name="204" type="No Content">
+  CORS preflight response
+</ResponseField>
+
+<ResponseField name="400" type="Bad Request">
+  Missing or invalid request parameters
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Invalid room password
+</ResponseField>
+
+<ResponseField name="404" type="Not Found">
+  Room, participant, or endpoint not found
+</ResponseField>
+
+<ResponseField name="502" type="Bad Gateway">
+  Failed to proxy request to participant endpoint
+</ResponseField>
+
+<ResponseField name="503" type="Service Unavailable">
+  Participant is offline
+</ResponseField>
+
+## Example Error Responses
+
+### Room Not Found
+```json
+{
+  "error": "Room not found"
+}
+```
+**Status:** `404`
+
+### Invalid Password
+```json
+{
+  "error": "Invalid password"
+}
+```
+**Status:** `401`
+
+### Missing Required Fields
+```json
+{
+  "error": "Missing required fields: id, nickname, model, endpoint"
+}
+```
+**Status:** `400`
+
+### Participant Offline
+```json
+{
+  "error": "Participant is offline"
+}
+```
+**Status:** `503`
+
+### Proxy Failed
+```json
+{
+  "error": "Failed to proxy request: <error details>"
+}
+```
+**Status:** `502`
+
+## Health Check
+
+The hub exposes a health check endpoint:
+
+```bash
+curl http://localhost:3000/health
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "timestamp": 1709409600000
+}
+```
+
+## Content Types
+
+### JSON Endpoints
+Most endpoints return `application/json`:
+- Room management
+- Participant management
+- Model listing
+- Non-streaming chat completions
+
+### Streaming Endpoints
+Streaming endpoints return `text/event-stream`:
+- `POST /rooms/:code/v1/chat/completions` (when `stream: true`)
+- `GET /rooms/:code/events` (Server-Sent Events)

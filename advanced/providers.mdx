@@ -1,0 +1,319 @@
+---
+title: LLM Providers
+description: Comprehensive guide to supported LLM providers and configuration
+---
+
+## Overview
+
+Gambiarra works with any **OpenAI-compatible API endpoint**. This includes popular local LLM servers and any custom implementation that follows the OpenAI chat completions API specification.
+
+## Supported Providers
+
+The following table lists officially tested and supported LLM providers:
+
+| Provider | Default Endpoint | Notes |
+|----------|------------------|-------|
+| **Ollama** | `http://localhost:11434` | Most popular local LLM server |
+| **LM Studio** | `http://localhost:1234` | GUI-based LLM management |
+| **LocalAI** | `http://localhost:8080` | Self-hosted OpenAI alternative |
+| **vLLM** | `http://localhost:8000` | High-performance inference |
+| **text-generation-webui** | `http://localhost:5000` | Gradio-based interface |
+| **Custom** | Any URL | Any OpenAI-compatible endpoint |
+
+## Provider Configuration
+
+### Ollama
+
+Ollama is the most commonly used provider with Gambiarra. It exposes models through both its native API (`/api/tags`) and OpenAI-compatible endpoints.
+
+**Configuration:**
+
+```bash
+gambiarra join ABC123 \
+  --endpoint http://localhost:11434 \
+  --model llama3 \
+  --nickname "My Ollama Server"
+```
+
+**Key Features:**
+- Automatic model discovery via `/api/tags`
+- Native support for model pulling and management
+- GPU acceleration with CUDA/ROCm
+- Supports most popular open-source models
+
+**Endpoint Structure:**
+- Native API: `http://localhost:11434/api/*`
+- OpenAI-compatible: `http://localhost:11434/v1/*`
+
+<Note>
+  Gambiarra automatically detects Ollama models via the `/api/tags` endpoint during the join process.
+</Note>
+
+### LM Studio
+
+LM Studio provides a desktop GUI for managing and running LLMs locally.
+
+**Configuration:**
+
+```bash
+gambiarra join ABC123 \
+  --endpoint http://localhost:1234 \
+  --model mistral-7b \
+  --nickname "LM Studio"
+```
+
+**Key Features:**
+- User-friendly GUI for model management
+- Built-in model downloader
+- Hardware acceleration support
+- OpenAI-compatible API by default
+
+**Considerations:**
+- Ensure the LM Studio server is running before joining
+- Model names should match what's loaded in LM Studio
+- Check the server settings in LM Studio for the correct port
+
+### LocalAI
+
+LocalAI is a drop-in replacement for OpenAI API that runs locally.
+
+**Configuration:**
+
+```bash
+gambiarra join ABC123 \
+  --endpoint http://localhost:8080 \
+  --model gpt-3.5-turbo \
+  --nickname "LocalAI"
+```
+
+**Key Features:**
+- Full OpenAI API compatibility
+- Supports multiple model formats (GGML, GGUF, etc.)
+- Audio transcription and image generation
+- Docker-ready deployment
+
+**Endpoint Structure:**
+- OpenAI-compatible: `http://localhost:8080/v1/*`
+
+### vLLM
+
+vLLM is a high-performance inference engine optimized for serving LLMs.
+
+**Configuration:**
+
+```bash
+gambiarra join ABC123 \
+  --endpoint http://localhost:8000 \
+  --model meta-llama/Llama-2-7b-chat-hf \
+  --nickname "vLLM Server"
+```
+
+**Key Features:**
+- High throughput and low latency
+- PagedAttention for efficient memory management
+- OpenAI-compatible API
+- Continuous batching
+
+**Considerations:**
+- Model names often use HuggingFace format
+- Requires GPU with sufficient VRAM
+- Best for production deployments
+
+### text-generation-webui
+
+A Gradio-based web interface for running LLMs with OpenAI API extension.
+
+**Configuration:**
+
+```bash
+gambiarra join ABC123 \
+  --endpoint http://localhost:5000 \
+  --model vicuna-13b \
+  --nickname "WebUI"
+```
+
+**Key Features:**
+- Web-based interface with multiple extensions
+- OpenAI API extension available
+- Supports various model formats
+- Character/chat mode
+
+**Considerations:**
+- Must enable the OpenAI API extension
+- Check the extensions tab for API settings
+- Default port may vary based on configuration
+
+### Custom Providers
+
+Any service implementing the OpenAI chat completions API can be used.
+
+**Required Endpoint:**
+```
+POST /v1/chat/completions
+```
+
+**Minimum Request Format:**
+```json
+{
+  "model": "string",
+  "messages": [
+    {
+      "role": "user",
+      "content": "string"
+    }
+  ]
+}
+```
+
+**Response Format:**
+```json
+{
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1234567890,
+  "model": "string",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "string"
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}
+```
+
+<Note>
+  For custom providers, ensure your endpoint responds to both `/v1/models` (for model listing) and `/v1/chat/completions` (for inference).
+</Note>
+
+## Model Discovery
+
+Gambiarra attempts to discover models from your endpoint during the join process:
+
+1. **Ollama Format**: Tries `GET /api/tags`
+2. **OpenAI Format**: Tries `GET /v1/models`
+
+See `packages/cli/src/commands/join.ts:24-50` for implementation details.
+
+## Generation Parameters
+
+Gambiarra supports standard OpenAI-compatible generation parameters:
+
+| Parameter | Type | Range | Description |
+|-----------|------|-------|-------------|
+| `temperature` | number | 0-2 | Controls randomness |
+| `top_p` | number | 0-1 | Nucleus sampling |
+| `max_tokens` | number | - | Maximum tokens to generate |
+| `stop` | string[] | - | Stop sequences |
+| `frequency_penalty` | number | -2 to 2 | Penalize token frequency |
+| `presence_penalty` | number | -2 to 2 | Penalize token presence |
+| `seed` | number | - | Deterministic generation |
+
+**Example with SDK:**
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Write a haiku",
+  temperature: 0.7,
+  max_tokens: 100,
+  stop: ["\n\n"],
+});
+```
+
+See `packages/core/src/types.ts:22-31` for the full schema.
+
+## Provider-Specific Considerations
+
+### Endpoint Availability
+
+<Warning>
+  Ensure your LLM server is accessible from the machine running the Gambiarra participant. If running in Docker or VMs, configure network bridges appropriately.
+</Warning>
+
+### Model Names
+
+Different providers use different model naming conventions:
+
+- **Ollama**: Simple names like `llama3`, `mistral`
+- **vLLM**: HuggingFace format like `meta-llama/Llama-2-7b-chat-hf`
+- **LM Studio**: Display names from the GUI
+- **LocalAI**: Custom aliases defined in configuration
+
+### Performance
+
+**Hardware Requirements:**
+- **CPU-only**: 8-16GB RAM minimum, very slow inference
+- **GPU (8GB VRAM)**: Good for 7B models
+- **GPU (16GB+ VRAM)**: Can run 13B+ models
+- **GPU (24GB+ VRAM)**: Can run 30B+ models or quantized 70B
+
+<Note>
+  Use the `--no-specs` flag when joining if you don't want to share your hardware specifications with other room participants.
+</Note>
+
+## Streaming Support
+
+All providers should support streaming responses via Server-Sent Events (SSE):
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { streamText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const stream = await streamText({
+  model: gambiarra.model("llama3"),
+  prompt: "Write a story about robots",
+});
+
+for await (const chunk of stream.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+The hub proxies streaming responses transparently (see `packages/core/src/hub.ts:284-293`).
+
+## Troubleshooting
+
+### Model Not Found
+
+If you get "Model not found" errors:
+
+1. Verify the model is loaded in your LLM server
+2. Check the exact model name (case-sensitive)
+3. Ensure the server is running on the specified endpoint
+4. Try listing models manually:
+
+```bash
+# Ollama
+curl http://localhost:11434/api/tags
+
+# OpenAI-compatible
+curl http://localhost:11434/v1/models
+```
+
+### Connection Refused
+
+If connection fails:
+
+1. Verify the server is running
+2. Check firewall rules
+3. Ensure correct port and hostname
+4. Test connectivity:
+
+```bash
+curl http://localhost:11434/v1/models
+```
+
+### Provider-Specific Issues
+
+Refer to the [Troubleshooting](/advanced/troubleshooting) guide for common provider-specific issues.

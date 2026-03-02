@@ -1,0 +1,182 @@
+---
+title: create
+description: Create a new room on a Gambiarra hub
+---
+
+The `create` command creates a new room on a Gambiarra hub where participants can join and share their LLM endpoints.
+
+## Usage
+
+```bash
+gambiarra create --name <room-name> [options]
+```
+
+## Options
+
+<ParamField path="--name" type="string" required>
+  Room name. Also accepts `-n` shorthand. This is a required parameter.
+  
+  ```bash
+  gambiarra create --name "My AI Room"
+  ```
+</ParamField>
+
+<ParamField path="--password" type="string">
+  Optional password to protect the room. Also accepts `-p` shorthand. When set, participants must provide this password to join.
+  
+  ```bash
+  gambiarra create --name "Private Room" --password secret123
+  ```
+</ParamField>
+
+<ParamField path="--hub" type="string" default="http://localhost:3000">
+  Hub URL to connect to. Also accepts `-H` shorthand.
+  
+  ```bash
+  gambiarra create --name "My Room" --hub http://192.168.1.10:3000
+  ```
+</ParamField>
+
+## Examples
+
+### Create a basic room
+
+Create a public room on the default local hub:
+
+```bash
+gambiarra create --name "My Room"
+```
+
+**Output:**
+```
+Room created!
+  Code: ABC123
+  ID: xK8pQ2mN5vL9
+
+Share the code with participants to join.
+```
+
+<Note>
+  The room code is randomly generated and unique. Share this code with participants who want to join.
+</Note>
+
+### Create a password-protected room
+
+Add password protection to prevent unauthorized access:
+
+```bash
+gambiarra create --name "Private AI Lab" --password secret123
+```
+
+**Output:**
+```
+Room created!
+  Code: XYZ789
+  ID: aB3cD4eF5gH6
+  Protection: Password-protected
+
+Share the code with participants to join.
+```
+
+<Warning>
+  Make sure to share both the room code and password with authorized participants. They'll need both to join.
+</Warning>
+
+### Create on a remote hub
+
+Connect to a hub running on a different machine:
+
+```bash
+gambiarra create --name "Remote Room" --hub http://192.168.1.10:3000
+```
+
+### Create with shorthand flags
+
+Use shorthand flags for quicker typing:
+
+```bash
+gambiarra create -n "Quick Room" -p mypass -H http://192.168.1.10:3000
+```
+
+## Response details
+
+When a room is created successfully, you'll receive:
+
+- **Code**: A short alphanumeric code (e.g., `ABC123`) that participants use to join
+- **ID**: A unique identifier for the room (used internally)
+- **Protection**: Indicates if the room is password-protected
+
+## Error handling
+
+### Missing room name
+
+The `--name` flag is required:
+
+```bash
+gambiarra create
+```
+
+**Output:**
+```
+Error: Required option --name is missing
+```
+
+### Hub connection failure
+
+If the hub is not reachable:
+
+```bash
+gambiarra create --name "My Room" --hub http://192.168.1.999:3000
+```
+
+**Output:**
+```
+Failed to connect to hub at http://192.168.1.999:3000
+[Error details]
+```
+
+<Note>
+  Make sure the hub is running before creating a room. Start the hub with [`gambiarra serve`](/cli/serve).
+</Note>
+
+### API errors
+
+If the hub returns an error (e.g., invalid parameters):
+
+```
+Error: [Error message from hub]
+```
+
+The command exits with code 1.
+
+## How it works
+
+1. The command sends a `POST` request to `{hub}/rooms` with the room name and optional password
+2. The hub creates a new room and generates a unique code
+3. The room is registered and ready to accept participants
+4. You receive the room code to share with others
+
+## Room lifecycle
+
+After creating a room:
+
+- The room remains active on the hub
+- Participants can join using the [`join`](/cli/join) command
+- You can list all rooms with the [`list`](/cli/list) command
+- Monitor room activity with the [`monitor`](/cli/monitor) command
+
+## Related commands
+
+- [`serve`](/cli/serve) - Start the hub server
+- [`join`](/cli/join) - Join an existing room
+- [`list`](/cli/list) - List all available rooms
+- [`monitor`](/cli/monitor) - Monitor rooms in real-time
+
+## Next steps
+
+After creating a room:
+
+1. Share the room code with participants
+2. If password-protected, share the password securely
+3. Participants can [join the room](/cli/join) with their LLM endpoints
+4. [Monitor the room](/cli/monitor) to see participant activity

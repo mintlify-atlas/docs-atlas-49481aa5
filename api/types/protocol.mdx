@@ -1,0 +1,543 @@
+---
+title: Protocol
+description: SSE protocol types and message schemas for real-time communication in Gambiarra
+---
+
+# Protocol Types
+
+Protocol types define the message schemas for Server-Sent Events (SSE) communication between the hub and clients.
+
+## Message Categories
+
+The protocol is organized into these categories:
+- **Room messages** - Room lifecycle events (create, join, leave)
+- **LLM messages** - Request/response streaming for LLM completions
+- **TUI messages** - Terminal UI registration and state
+- **Host messages** - Host-specific events
+- **List messages** - Room listing requests/responses
+
+## Room Messages
+
+### RoomCreateMessage
+
+Client request to create a new room.
+
+```typescript
+const RoomCreateMessage = z.object({
+  type: z.literal("room:create"),
+  name: z.string(),
+});
+```
+
+<ResponseField name="type" type="'room:create'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Display name for the new room
+</ResponseField>
+
+### RoomCreatedMessage
+
+Server response after successfully creating a room.
+
+```typescript
+const RoomCreatedMessage = z.object({
+  type: z.literal("room:created"),
+  code: z.string(),
+  roomId: z.string(),
+});
+```
+
+<ResponseField name="type" type="'room:created'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="code" type="string" required>
+  Human-readable room code for joining
+</ResponseField>
+
+<ResponseField name="roomId" type="string" required>
+  Unique room identifier
+</ResponseField>
+
+### RoomJoinMessage
+
+Client request to join an existing room.
+
+```typescript
+const RoomJoinMessage = z.object({
+  type: z.literal("room:join"),
+  code: z.string(),
+  participant: z.object({
+    id: z.string(),
+    nickname: z.string(),
+    model: z.string(),
+    endpoint: z.string().url(),
+    specs: MachineSpecs,
+    config: GenerationConfig,
+  }),
+});
+```
+
+<ResponseField name="type" type="'room:join'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="code" type="string" required>
+  Room code to join
+</ResponseField>
+
+<ResponseField name="participant" type="object" required>
+  Participant information for registration
+</ResponseField>
+
+### RoomJoinedMessage
+
+Server response after successfully joining a room.
+
+```typescript
+const RoomJoinedMessage = z.object({
+  type: z.literal("room:joined"),
+  roomId: z.string(),
+  participants: z.array(ParticipantInfo),
+});
+```
+
+<ResponseField name="type" type="'room:joined'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="roomId" type="string" required>
+  Room identifier
+</ResponseField>
+
+<ResponseField name="participants" type="ParticipantInfo[]" required>
+  List of all participants currently in the room
+</ResponseField>
+
+### RoomParticipantJoinedMessage
+
+Broadcast when a new participant joins the room.
+
+```typescript
+const RoomParticipantJoinedMessage = z.object({
+  type: z.literal("room:participant-joined"),
+  participant: ParticipantInfo,
+});
+```
+
+<ResponseField name="type" type="'room:participant-joined'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="participant" type="ParticipantInfo" required>
+  Information about the participant who joined
+</ResponseField>
+
+### RoomParticipantLeftMessage
+
+Broadcast when a participant leaves the room.
+
+```typescript
+const RoomParticipantLeftMessage = z.object({
+  type: z.literal("room:participant-left"),
+  participantId: z.string(),
+});
+```
+
+<ResponseField name="type" type="'room:participant-left'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="participantId" type="string" required>
+  ID of the participant who left
+</ResponseField>
+
+### RoomErrorMessage
+
+Server error response for room operations.
+
+```typescript
+const RoomErrorMessage = z.object({
+  type: z.literal("room:error"),
+  error: z.string(),
+});
+```
+
+<ResponseField name="type" type="'room:error'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="error" type="string" required>
+  Error message description
+</ResponseField>
+
+## LLM Messages
+
+### LlmRequestMessage
+
+Client request to generate LLM completion.
+
+```typescript
+const LlmRequestMessage = z.object({
+  type: z.literal("llm:request"),
+  requestId: z.string(),
+  targetId: z.string(),
+  prompt: z.string(),
+  options: GenerationConfig.optional(),
+});
+```
+
+<ResponseField name="type" type="'llm:request'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="requestId" type="string" required>
+  Unique identifier for tracking this request
+</ResponseField>
+
+<ResponseField name="targetId" type="string" required>
+  Target participant ID or routing pattern (e.g., "model:llama3", "*")
+</ResponseField>
+
+<ResponseField name="prompt" type="string" required>
+  Input prompt for generation
+</ResponseField>
+
+<ResponseField name="options" type="GenerationConfig">
+  Optional generation parameters to override participant defaults
+</ResponseField>
+
+### LlmTokenMessage
+
+Streaming token response during generation.
+
+```typescript
+const LlmTokenMessage = z.object({
+  type: z.literal("llm:token"),
+  requestId: z.string(),
+  participantId: z.string(),
+  token: z.string(),
+  seq: z.number(),
+});
+```
+
+<ResponseField name="type" type="'llm:token'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="requestId" type="string" required>
+  Request identifier this token belongs to
+</ResponseField>
+
+<ResponseField name="participantId" type="string" required>
+  ID of the participant generating the response
+</ResponseField>
+
+<ResponseField name="token" type="string" required>
+  Generated text token
+</ResponseField>
+
+<ResponseField name="seq" type="number" required>
+  Sequence number for ordering tokens
+</ResponseField>
+
+### LlmCompleteMessage
+
+Completion signal with metrics after generation finishes.
+
+```typescript
+const LlmCompleteMessage = z.object({
+  type: z.literal("llm:complete"),
+  requestId: z.string(),
+  participantId: z.string(),
+  metrics: LlmMetrics,
+});
+```
+
+<ResponseField name="type" type="'llm:complete'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="requestId" type="string" required>
+  Request identifier
+</ResponseField>
+
+<ResponseField name="participantId" type="string" required>
+  ID of the participant who completed the generation
+</ResponseField>
+
+<ResponseField name="metrics" type="LlmMetrics" required>
+  Performance metrics for the generation. See [LlmMetrics](#llmmetrics).
+</ResponseField>
+
+### LlmErrorMessage
+
+Error response during LLM generation.
+
+```typescript
+const LlmErrorMessage = z.object({
+  type: z.literal("llm:error"),
+  requestId: z.string(),
+  participantId: z.string(),
+  error: z.string(),
+});
+```
+
+<ResponseField name="type" type="'llm:error'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="requestId" type="string" required>
+  Request identifier
+</ResponseField>
+
+<ResponseField name="participantId" type="string" required>
+  ID of the participant that encountered the error
+</ResponseField>
+
+<ResponseField name="error" type="string" required>
+  Error message description
+</ResponseField>
+
+## TUI Messages
+
+### TuiRegisterMessage
+
+Terminal UI client registration.
+
+```typescript
+const TuiRegisterMessage = z.object({
+  type: z.literal("tui:register"),
+  roomCode: z.string().optional(),
+});
+```
+
+<ResponseField name="type" type="'tui:register'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="roomCode" type="string">
+  Optional room code to focus on
+</ResponseField>
+
+### TuiRegisteredMessage
+
+Server response with initial TUI state.
+
+```typescript
+const TuiRegisteredMessage = z.object({
+  type: z.literal("tui:registered"),
+  rooms: z.array(RoomInfoPublic),
+  participants: z.array(ParticipantInfo),
+});
+```
+
+<ResponseField name="type" type="'tui:registered'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="rooms" type="RoomInfoPublic[]" required>
+  List of all active rooms
+</ResponseField>
+
+<ResponseField name="participants" type="ParticipantInfo[]" required>
+  List of all active participants
+</ResponseField>
+
+## Host Messages
+
+### HostRegisterMessage
+
+Host registration for receiving room-specific events.
+
+```typescript
+const HostRegisterMessage = z.object({
+  type: z.literal("host:register"),
+  roomId: z.string(),
+});
+```
+
+<ResponseField name="type" type="'host:register'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="roomId" type="string" required>
+  Room identifier to monitor
+</ResponseField>
+
+### HostRegisteredMessage
+
+Server response with room state for host.
+
+```typescript
+const HostRegisteredMessage = z.object({
+  type: z.literal("host:registered"),
+  room: RoomInfoPublic,
+  participants: z.array(ParticipantInfo),
+});
+```
+
+<ResponseField name="type" type="'host:registered'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="room" type="RoomInfoPublic" required>
+  Room information
+</ResponseField>
+
+<ResponseField name="participants" type="ParticipantInfo[]" required>
+  Current participants in the room
+</ResponseField>
+
+## List Messages
+
+### ListRoomsMessage
+
+Client request to list all rooms.
+
+```typescript
+const ListRoomsMessage = z.object({
+  type: z.literal("list:rooms"),
+});
+```
+
+<ResponseField name="type" type="'list:rooms'" required>
+  Message type discriminator
+</ResponseField>
+
+### ListRoomsResponseMessage
+
+Server response with room list.
+
+```typescript
+const ListRoomsResponseMessage = z.object({
+  type: z.literal("list:rooms-response"),
+  rooms: z.array(
+    RoomInfoPublic.extend({
+      participantCount: z.number(),
+    })
+  ),
+});
+```
+
+<ResponseField name="type" type="'list:rooms-response'" required>
+  Message type discriminator
+</ResponseField>
+
+<ResponseField name="rooms" type="(RoomInfoPublic & { participantCount: number })[]" required>
+  Array of rooms with participant counts
+</ResponseField>
+
+## Supporting Types
+
+### LlmMetrics
+
+Performance metrics for LLM generation.
+
+```typescript
+const LlmMetrics = z.object({
+  tokens: z.number(),
+  latencyFirstTokenMs: z.number(),
+  durationMs: z.number(),
+  tokensPerSecond: z.number(),
+});
+
+type LlmMetrics = z.infer<typeof LlmMetrics>;
+```
+
+<ResponseField name="tokens" type="number" required>
+  Total number of tokens generated
+</ResponseField>
+
+<ResponseField name="latencyFirstTokenMs" type="number" required>
+  Time in milliseconds until the first token was generated
+</ResponseField>
+
+<ResponseField name="durationMs" type="number" required>
+  Total generation duration in milliseconds
+</ResponseField>
+
+<ResponseField name="tokensPerSecond" type="number" required>
+  Throughput rate (tokens/second)
+</ResponseField>
+
+## Message Unions
+
+### ClientMessage
+
+Discriminated union of all client-to-server messages.
+
+```typescript
+const ClientMessage = z.discriminatedUnion("type", [
+  RoomCreateMessage,
+  RoomJoinMessage,
+  LlmRequestMessage,
+  TuiRegisterMessage,
+  HostRegisterMessage,
+  ListRoomsMessage,
+]);
+
+type ClientMessage = z.infer<typeof ClientMessage>;
+```
+
+### ServerMessage
+
+Discriminated union of all server-to-client messages.
+
+```typescript
+const ServerMessage = z.discriminatedUnion("type", [
+  RoomCreatedMessage,
+  RoomJoinedMessage,
+  RoomParticipantJoinedMessage,
+  RoomParticipantLeftMessage,
+  RoomErrorMessage,
+  LlmTokenMessage,
+  LlmCompleteMessage,
+  LlmErrorMessage,
+  TuiRegisteredMessage,
+  HostRegisteredMessage,
+  ListRoomsResponseMessage,
+]);
+
+type ServerMessage = z.infer<typeof ServerMessage>;
+```
+
+## Usage Example
+
+```typescript
+import { ServerMessage } from "@gambiarra/core";
+
+// Connect to SSE endpoint
+const eventSource = new EventSource("/rooms/swift-eagle-42/events");
+
+eventSource.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  const parsed = ServerMessage.parse(message);
+
+  switch (parsed.type) {
+    case "room:participant-joined":
+      console.log(`${parsed.participant.nickname} joined`);
+      break;
+
+    case "llm:token":
+      process.stdout.write(parsed.token);
+      break;
+
+    case "llm:complete":
+      console.log(`\nGenerated ${parsed.metrics.tokens} tokens in ${parsed.metrics.durationMs}ms`);
+      break;
+
+    case "llm:error":
+      console.error(`Error: ${parsed.error}`);
+      break;
+  }
+};
+```
+
+## Related Types
+
+- [ParticipantInfo](/api/types/participant) - Participant metadata used in messages
+- [RoomInfo](/api/types/room) - Room metadata used in messages
+- [GenerationConfig](/api/types/participant#generationconfig) - Generation parameters

@@ -1,0 +1,284 @@
+---
+title: join
+description: Join a room and expose your OpenAI-compatible endpoint
+---
+
+The `join` command connects your local LLM endpoint to a Gambiarra room, making your models available to other participants through the hub.
+
+## Usage
+
+```bash
+gambiarra join --code <room-code> --model <model-name> [options]
+```
+
+## Options
+
+<ParamField path="--code" type="string" required>
+  Room code to join. Also accepts `-c` shorthand. This is the code you received when the room was created.
+  
+  ```bash
+  gambiarra join --code ABC123 --model llama3
+  ```
+</ParamField>
+
+<ParamField path="--model" type="string" required>
+  Model to expose from your endpoint. Also accepts `-m` shorthand. Must be available on your LLM server.
+  
+  ```bash
+  gambiarra join --code ABC123 --model llama3
+  ```
+</ParamField>
+
+<ParamField path="--endpoint" type="string" default="http://localhost:11434">
+  OpenAI-compatible API endpoint. Also accepts `-e` shorthand. Works with Ollama, LM Studio, and other OpenAI-compatible servers.
+  
+  ```bash
+  gambiarra join --code ABC123 --model llama3 --endpoint http://localhost:11434
+  ```
+</ParamField>
+
+<ParamField path="--nickname" type="string">
+  Display name for your endpoint. Also accepts `-n` shorthand. If not provided, defaults to `<model>@<id-prefix>`.
+  
+  ```bash
+  gambiarra join --code ABC123 --model llama3 --nickname "My GPU Server"
+  ```
+</ParamField>
+
+<ParamField path="--password" type="string">
+  Room password (if the room is password-protected). Also accepts `-p` shorthand.
+  
+  ```bash
+  gambiarra join --code ABC123 --model llama3 --password secret123
+  ```
+</ParamField>
+
+<ParamField path="--hub" type="string" default="http://localhost:3000">
+  Hub URL to connect to. Also accepts `-H` shorthand.
+  
+  ```bash
+  gambiarra join --code ABC123 --model llama3 --hub http://192.168.1.10:3000
+  ```
+</ParamField>
+
+<ParamField path="--no-specs" type="boolean" default="false">
+  Don't share machine specs (CPU, RAM, GPU) with the room. By default, the command detects and shares your system specifications.
+  
+  ```bash
+  gambiarra join --code ABC123 --model llama3 --no-specs
+  ```
+</ParamField>
+
+## Examples
+
+### Join with Ollama
+
+Connect your local Ollama server to a room:
+
+```bash
+gambiarra join --code ABC123 --model llama3 --endpoint http://localhost:11434
+```
+
+**Output:**
+```
+Detected specs: Intel i7-9700K, 32GB RAM, NVIDIA RTX 3080
+
+Joined room ABC123!
+  Participant ID: xK8pQ2mN5v
+  Nickname: llama3@xK8pQ2
+  Model: llama3
+  Endpoint: http://localhost:11434
+
+Your endpoint is now available through the hub.
+Press Ctrl+C to leave the room.
+```
+
+<Note>
+  The command stays running and sends periodic health checks to the hub. Keep the terminal open to remain in the room.
+</Note>
+
+### Join with LM Studio
+
+LM Studio typically runs on port 1234:
+
+```bash
+gambiarra join --code ABC123 --model gpt-4 --endpoint http://localhost:1234
+```
+
+### Join with custom nickname
+
+Set a friendly display name:
+
+```bash
+gambiarra join --code ABC123 --model llama3 --nickname "Office GPU"
+```
+
+**Output:**
+```
+Detected specs: Intel i7-9700K, 32GB RAM, NVIDIA RTX 3080
+
+Joined room ABC123!
+  Participant ID: aB3cD4eF5g
+  Nickname: Office GPU
+  Model: llama3
+  Endpoint: http://localhost:11434
+
+Your endpoint is now available through the hub.
+Press Ctrl+C to leave the room.
+```
+
+### Join password-protected room
+
+Provide the room password:
+
+```bash
+gambiarra join --code ABC123 --model llama3 --password secret123
+```
+
+### Join remote hub
+
+Connect to a hub on a different machine:
+
+```bash
+gambiarra join --code ABC123 --model llama3 --hub http://192.168.1.10:3000
+```
+
+### Hide system specs
+
+Prevent sharing your hardware information:
+
+```bash
+gambiarra join --code ABC123 --model llama3 --no-specs
+```
+
+### Complete example with all options
+
+```bash
+gambiarra join \
+  --code ABC123 \
+  --model llama3 \
+  --endpoint http://localhost:11434 \
+  --nickname "Main Server" \
+  --password secret123 \
+  --hub http://192.168.1.10:3000
+```
+
+## How it works
+
+1. **Model validation**: The command connects to your endpoint and verifies the model exists
+2. **Registration**: Sends a join request to the hub with your model, endpoint, and specs
+3. **Health checks**: Sends periodic health checks every 10 seconds (configurable in core)
+4. **Active session**: Remains connected until you press `Ctrl+C` or connection is lost
+5. **Graceful exit**: Notifies the hub when leaving
+
+<Note>
+  Health checks run every 10 seconds. If 3 consecutive checks fail (30 seconds), you're automatically removed from the room.
+</Note>
+
+## Supported endpoints
+
+Gambiarra works with any OpenAI-compatible API server:
+
+- **Ollama**: Default endpoint `http://localhost:11434`
+- **LM Studio**: Default endpoint `http://localhost:1234`
+- **LocalAI**: Configurable endpoint
+- **Custom servers**: Any server implementing OpenAI's API format
+
+### Endpoint detection
+
+The command automatically detects your endpoint type:
+
+1. Tries Ollama API format (`/api/tags`)
+2. Falls back to OpenAI format (`/v1/models`)
+3. Lists available models from the detected format
+
+## Error handling
+
+### Model not found
+
+If the specified model isn't available:
+
+```bash
+gambiarra join --code ABC123 --model nonexistent
+```
+
+**Output:**
+```
+Model 'nonexistent' not found.
+Available models: llama3, llama2, codellama
+```
+
+### No models at endpoint
+
+If the endpoint has no models:
+
+```bash
+gambiarra join --code ABC123 --model llama3 --endpoint http://localhost:9999
+```
+
+**Output:**
+```
+No models found at http://localhost:9999
+Make sure your LLM server is running and has models available.
+```
+
+### Wrong password
+
+If the password is incorrect:
+
+```
+Error: Invalid password
+```
+
+### Room not found
+
+If the room code doesn't exist:
+
+```
+Error: Room not found
+```
+
+### Connection lost
+
+If connection to the hub is lost during the session:
+
+```
+Lost connection to hub, leaving room...
+```
+
+The command exits automatically.
+
+## Health check behavior
+
+While connected:
+
+- Health checks are sent every **10 seconds**
+- Participant timeout is **30 seconds** (3 failed checks)
+- If health checks fail, you're removed from the room
+- Graceful shutdown notifies the hub immediately
+
+## System specs detection
+
+By default, the command detects and shares:
+
+- **CPU**: Model and core count
+- **RAM**: Total system memory
+- **GPU**: Graphics card model (if available)
+
+Disable with `--no-specs` if you prefer not to share.
+
+## Related commands
+
+- [`create`](/cli/create) - Create a new room
+- [`list`](/cli/list) - List available rooms
+- [`monitor`](/cli/monitor) - Monitor room activity in real-time
+- [`serve`](/cli/serve) - Start the hub server
+
+## Next steps
+
+After joining a room:
+
+1. Keep the terminal open to stay connected
+2. [Monitor the room](/cli/monitor) from another terminal
+3. Other participants can now route requests to your model
+4. Press `Ctrl+C` when you want to leave

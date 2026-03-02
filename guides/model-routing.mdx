@@ -1,0 +1,426 @@
+---
+title: Model Routing
+description: How Gambiarra routes requests to participants using three powerful strategies
+---
+
+## Overview
+
+Gambiarra's model routing system determines which participant's LLM handles each request. The hub supports three routing strategies, specified via the `model` field in chat completion requests:
+
+| Strategy | Pattern | Behavior |
+|----------|---------|----------|
+| **Any** | `*` or `any` | Random online participant |
+| **Model name** | `model:<name>` | First online participant with that model |
+| **Participant ID** | `<participant-id>` | Specific participant by UUID |
+
+## Routing Strategies
+
+### 1. Any Available Participant
+
+Use `*` or `any` to route to a random online participant. This is useful for load balancing or when you don't care which model handles the request.
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Tell me a joke"
+});
+```
+
+**How it works**:
+
+1. Hub fetches all participants in the room
+2. Filters to only `status: "online"` participants
+3. Selects one randomly using `Math.random()`
+4. Proxies the request to that participant's endpoint
+
+**Implementation**: `packages/core/src/room.ts:167-183`
+
+```typescript
+function getRandomOnlineParticipant(
+  roomId: string
+): ParticipantInfo | undefined {
+  const room = rooms.get(roomId);
+  if (!room) return undefined;
+
+  const online = Array.from(room.participants.values()).filter(
+    (p) => p.status === "online"
+  );
+
+  if (online.length === 0) return undefined;
+  return online[Math.floor(Math.random() * online.length)];
+}
+```
+
+<Tip>
+Use `gambiarra.any()` when you want to distribute load across all available participants.
+</Tip>
+
+### 2. Model Name Routing
+
+Use `model:<name>` to route to the first online participant with a specific model name.
+
+```typescript
+const result = await generateText({
+  model: gambiarra.model("llama3"),  // Routes to "model:llama3"
+  prompt: "Explain quantum computing"
+});
+```
+
+**How it works**:
+
+1. SDK prepends `model:` to the name (e.g., `"llama3"` → `"model:llama3"`)
+2. Hub extracts the model name by slicing off the prefix
+3. Iterates through participants to find first match with `participant.model === "llama3"`
+4. Only considers participants with `status: "online"`
+
+**Implementation**: `packages/core/src/room.ts:150-165`
+
+```typescript
+function findParticipantByModel(
+  roomId: string,
+  model: string
+): ParticipantInfo | undefined {
+  const room = rooms.get(roomId);
+  if (!room) return undefined;
+
+  for (const participant of room.participants.values()) {
+    if (participant.model === model && participant.status === "online") {
+      return participant;
+    }
+  }
+  return undefined;
+}
+```
+
+**SDK implementation**: `packages/sdk/src/provider.ts:98`
+
+```typescript
+model: (name: string) => createProvider(`model:${name}`)
+```
+
+<Info>
+The model name must exactly match the `model` field provided during participant registration.
+</Info>
+
+### 3. Participant ID Routing
+
+Use a specific participant UUID to always route to that participant.
+
+```typescript
+// Get list of participants
+const participants = await gambiarra.listParticipants();
+
+// Route to a specific participant
+const result = await generateText({
+  model: gambiarra.participant(participants[0].id),
+  prompt: "What's your GPU?"
+});
+```
+
+**How it works**:
+
+1. Hub first tries to find participant by ID
+2. If found, uses that participant
+3. If not found, falls back to treating it as a model name
+
+**Implementation**: `packages/core/src/hub.ts:226-247`
+
+```typescript
+function findParticipant(
+  roomId: string,
+  modelId: string
+): ParticipantInfo | undefined {
+  if (modelId === "*" || modelId === "any") {
+    return Room.getRandomOnlineParticipant(roomId);
+  }
+
+  if (modelId.startsWith("model:")) {
+    const actualModel = modelId.slice(6);
+    return Room.findParticipantByModel(roomId, actualModel);
+  }
+
+  // Try as participant ID first
+  const participant = Room.getParticipant(roomId, modelId);
+  if (participant) {
+    return participant;
+  }
+
+  // Fallback: try as model name
+  return Room.findParticipantByModel(roomId, modelId);
+}
+```
+
+<Warning>
+If the participant is offline or doesn't exist, the request will fail with a 404 or 503 error.
+</Warning>
+
+## Routing Examples
+
+### Example 1: Load Balancing
+
+Distribute requests across multiple participants:
+
+```typescript
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+// All requests go to random online participants
+const promises = Array.from({ length: 10 }, (_, i) =>
+  generateText({
+    model: gambiarra.any(),
+    prompt: `Question ${i + 1}`
+  })
+);
+
+const results = await Promise.all(promises);
+```
+
+### Example 2: Model-Specific Routing
+
+Route based on task requirements:
+
+```typescript
+// Use fast model for simple tasks
+const summary = await generateText({
+  model: gambiarra.model("llama3"),
+  prompt: "Summarize: ...long text..."
+});
+
+// Use powerful model for complex reasoning
+const analysis = await generateText({
+  model: gambiarra.model("gpt-4"),
+  prompt: "Analyze: ...complex data..."
+});
+```
+
+### Example 3: Sticky Sessions
+
+Keep a conversation with the same participant:
+
+```typescript
+const participants = await gambiarra.listParticipants();
+const selectedParticipant = participants[0].id;
+
+const messages = [];
+
+for (const userMessage of conversation) {
+  messages.push({ role: "user", content: userMessage });
+  
+  const result = await generateText({
+    model: gambiarra.participant(selectedParticipant),
+    messages
+  });
+  
+  messages.push({ role: "assistant", content: result.text });
+}
+```
+
+### Example 4: Fallback Strategy
+
+Try specific model, fall back to any:
+
+```typescript
+async function generateWithFallback(prompt: string) {
+  try {
+    // Try preferred model first
+    return await generateText({
+      model: gambiarra.model("llama3"),
+      prompt
+    });
+  } catch (error) {
+    // Fall back to any available participant
+    return await generateText({
+      model: gambiarra.any(),
+      prompt
+    });
+  }
+}
+```
+
+## Participant Status
+
+Routing only considers participants with `status: "online"`:
+
+```typescript
+type ParticipantStatus = "online" | "busy" | "offline";
+```
+
+| Status | Description | Routable? |
+|--------|-------------|----------|
+| `online` | Participant is healthy and available | ✅ Yes |
+| `busy` | Participant is processing a request | ❌ No |
+| `offline` | Participant hasn't sent health check in 30s | ❌ No |
+
+<Note>
+The `busy` status is not currently implemented but reserved for future load management.
+</Note>
+
+## Listing Available Models
+
+To see what models are available in a room:
+
+### Using SDK
+
+```typescript
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+// Get all participants
+const participants = await gambiarra.listParticipants();
+participants.forEach(p => {
+  console.log(`${p.nickname}: ${p.model} (${p.status})`);
+});
+
+// Get OpenAI-compatible model list
+const models = await gambiarra.listModels();
+models.forEach(m => {
+  console.log(`${m.id}: ${m.model} by ${m.nickname}`);
+});
+```
+
+### Using HTTP
+
+```bash
+# List participants
+curl http://localhost:3000/rooms/ABC123/participants
+
+# List models (OpenAI-compatible)
+curl http://localhost:3000/rooms/ABC123/v1/models
+```
+
+**Response format** (`/v1/models`):
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "participant-uuid",
+      "object": "model",
+      "created": 1234567890,
+      "owned_by": "Alice",
+      "gambiarra": {
+        "nickname": "Alice",
+        "model": "llama3",
+        "endpoint": "http://192.168.1.50:11434"
+      }
+    }
+  ]
+}
+```
+
+**Implementation**: `packages/core/src/hub.ts:161-186`
+
+## Error Handling
+
+Routing can fail for several reasons:
+
+### 404: No Available Participant
+
+```json
+{
+  "error": "No available participant for the requested model"
+}
+```
+
+**Causes**:
+- No participants in the room
+- Requested model doesn't exist
+- All participants are offline
+
+### 503: Participant Offline
+
+```json
+{
+  "error": "Participant is offline"
+}
+```
+
+**Causes**:
+- Participant was found but status is not "online"
+- Participant's health check expired
+
+### 502: Proxy Failed
+
+```json
+{
+  "error": "Failed to proxy request: <details>"
+}
+```
+
+**Causes**:
+- Participant's LLM endpoint is unreachable
+- Network error between hub and participant
+- Participant's LLM crashed
+
+## Direct OpenAI Client Usage
+
+You can use Gambiarra with any OpenAI-compatible client:
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "http://localhost:3000/rooms/ABC123/v1",
+  apiKey: "not-needed"  // API key not required
+});
+
+// Any strategy works
+const result1 = await client.chat.completions.create({
+  model: "*",  // Any participant
+  messages: [{ role: "user", content: "Hello" }]
+});
+
+const result2 = await client.chat.completions.create({
+  model: "model:llama3",  // Specific model
+  messages: [{ role: "user", content: "Hi" }]
+});
+
+const result3 = await client.chat.completions.create({
+  model: "participant-uuid",  // Specific participant
+  messages: [{ role: "user", content: "Hey" }]
+});
+```
+
+## Advanced: Custom Routing Logic
+
+For custom routing (e.g., based on GPU specs or latency), implement client-side logic:
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+// Fetch participants
+const participants = await gambiarra.listParticipants();
+
+// Select participant with most VRAM
+const bestParticipant = participants
+  .filter(p => p.status === "online")
+  .sort((a, b) => (b.specs.vram ?? 0) - (a.specs.vram ?? 0))[0];
+
+if (!bestParticipant) {
+  throw new Error("No online participants");
+}
+
+// Route to selected participant
+const result = await generateText({
+  model: gambiarra.participant(bestParticipant.id),
+  prompt: "Process this large context..."
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Room Management" icon="door-open" href="/guides/room-management">
+    Learn how to manage rooms and participants
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/guides/architecture">
+    Understand the overall system design
+  </Card>
+</CardGroup>

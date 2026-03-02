@@ -1,80 +1,404 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get up and running with Gambiarra in under 5 minutes
 ---
 
-## Get started in three steps
+This guide will walk you through setting up Gambiarra, creating your first room, and making your first LLM request through the shared pool.
 
-Get your documentation site running locally and make your first customization.
+<Note>
+  Before starting, make sure you have a local LLM running (Ollama, LM Studio, etc.). If you don't have one yet, install [Ollama](https://ollama.ai) and run `ollama pull llama3`.
+</Note>
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+- A local LLM server (Ollama, LM Studio, LocalAI, etc.)
+- Node.js 18+ or Bun 1.0+ (for SDK usage)
+- Two or more machines on the same network (optional, but ideal for testing)
 
-### Step 2: Deploy your changes
+## Setup
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Steps>
+  <Step title="Install the CLI">
+    Install the Gambiarra CLI using the standalone installer:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/arthurbm/gambiarra/main/scripts/install.sh | bash
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    Verify the installation:
 
-### Step 3: Go live
+    ```bash
+    gambiarra --version
+    ```
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Start the hub server">
+    The hub is the central coordinator for all rooms and participants. Start it on any machine in your network:
+
+    ```bash
+    gambiarra serve --port 3000 --mdns
+    ```
+
+    You should see output like:
+
+    ```
+    Hub started at http://0.0.0.0:3000
+    Health check: http://0.0.0.0:3000/health
+    mDNS: http://your-machine.local:3000
+          Service: gambiarra-hub-3000._gambiarra._tcp.local
+
+    Press Ctrl+C to stop
+    ```
+
+    <Note>
+      The `--mdns` flag enables automatic discovery on your local network. Clients can find the hub without knowing its IP address.
+    </Note>
+
+    Keep this terminal running. The hub needs to stay active for participants to communicate.
+  </Step>
+
+  <Step title="Create a room">
+    Open a new terminal and create a room:
+
+    ```bash
+    gambiarra create --name "My First Room"
+    ```
+
+    Output:
+
+    ```
+    Room created!
+      Code: ABC123
+      ID: xK3mP9n2L4qW
+
+    Share the code with participants to join.
+    ```
+
+    <Note>
+      The room code (like `ABC123`) is what others will use to join your room. Share it with your team!
+    </Note>
+
+    ### Optional: Password protection
+
+    You can protect your room with a password:
+
+    ```bash
+    gambiarra create --name "Secure Room" --password mySecret123
+    ```
+  </Step>
+
+  <Step title="Join with your LLM">
+    Now join the room with your local LLM endpoint. This makes your LLM available to others in the room.
+
+    <Tabs>
+      <Tab title="Ollama">
+        ```bash
+        gambiarra join ABC123 \
+          --endpoint http://localhost:11434 \
+          --model llama3 \
+          --nickname "My Laptop"
+        ```
+      </Tab>
+
+      <Tab title="LM Studio">
+        ```bash
+        gambiarra join ABC123 \
+          --endpoint http://localhost:1234 \
+          --model gpt-4 \
+          --nickname "My Desktop"
+        ```
+      </Tab>
+
+      <Tab title="LocalAI">
+        ```bash
+        gambiarra join ABC123 \
+          --endpoint http://localhost:8080 \
+          --model llama3 \
+          --nickname "My Server"
+        ```
+      </Tab>
+
+      <Tab title="Custom">
+        ```bash
+        gambiarra join ABC123 \
+          --endpoint http://192.168.1.100:8000 \
+          --model your-model \
+          --nickname "GPU Server"
+        ```
+      </Tab>
+    </Tabs>
+
+    Output:
+
+    ```
+    Detected specs: Intel Core i7-9700K, 32GB RAM, NVIDIA RTX 3080 (10GB)
+
+    Joined room ABC123!
+      Participant ID: kJ9mN2p4L8qR
+      Nickname: My Laptop
+      Model: llama3
+      Endpoint: http://localhost:11434
+
+    Your endpoint is now available through the hub.
+    Press Ctrl+C to leave the room.
+    ```
+
+    The participant will automatically send health checks every 10 seconds to stay online.
+
+    <Note>
+      If the room is password-protected, add `--password mySecret123` to the join command.
+    </Note>
+  </Step>
+
+  <Step title="Use the SDK in your application">
+    Now that you have a hub running and a participant joined, you can use the SDK to interact with the shared LLM pool.
+
+    Install the SDK in your project:
+
+    <CodeGroup>
+    ```bash npm
+    npm install gambiarra-sdk ai
+    ```
+
+    ```bash bun
+    bun add gambiarra-sdk ai
+    ```
+    </CodeGroup>
+
+    Create a file `app.ts`:
+
+    ```typescript app.ts
+    import { createGambiarra } from "gambiarra-sdk";
+    import { generateText } from "ai";
+
+    const gambiarra = createGambiarra({
+      roomCode: "ABC123",
+      hubUrl: "http://localhost:3000",
+    });
+
+    const result = await generateText({
+      model: gambiarra.any(),
+      prompt: "What is Gambiarra?",
+    });
+
+    console.log(result.text);
+    ```
+
+    Run it:
+
+    ```bash
+    bun run app.ts
+    # or
+    npx tsx app.ts
+    ```
+
+    You should see a response from the LLM!
+  </Step>
+</Steps>
+
+## What just happened?
+
+Let's break down what happened:
+
+1. **Hub started** - The central coordinator started on port 3000
+2. **Room created** - A virtual room with code `ABC123` was created
+3. **Participant joined** - Your local LLM registered as a participant in the room
+4. **SDK connected** - Your application connected to the hub and made a request
+5. **Request routed** - The hub routed your request to an available participant
+6. **Response returned** - The participant's LLM processed the request and returned the result
+
+```
+Your App                     Hub                    Participant
+   │                          │                          │
+   │  generateText(...)       │                          │
+   │ ────────────────────────►│                          │
+   │                          │  Proxy request           │
+   │                          │ ────────────────────────►│
+   │                          │                          │
+   │                          │  LLM response            │
+   │                          │ ◄────────────────────────│
+   │  Response                │                          │
+   │ ◄────────────────────────│                          │
+```
+
+## Try different routing patterns
+
+Gambiarra supports three routing strategies:
+
+### 1. Any available participant (random)
+
+Use any online participant:
+
+```typescript
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Hello!",
+});
+```
+
+### 2. Specific model
+
+Route to the first participant with a specific model:
+
+```typescript
+const result = await generateText({
+  model: gambiarra.model("llama3"),
+  prompt: "Hello from llama3!",
+});
+```
+
+### 3. Specific participant
+
+Route to a specific participant by ID:
+
+```typescript
+const result = await generateText({
+  model: gambiarra.participant("kJ9mN2p4L8qR"),
+  prompt: "Hello from specific participant!",
+});
+```
+
+## Streaming responses
+
+Gambiarra fully supports streaming responses:
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { streamText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const stream = await streamText({
+  model: gambiarra.model("llama3"),
+  prompt: "Write a haiku about TypeScript",
+});
+
+for await (const chunk of stream.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+## List available models
+
+You can programmatically list all participants and models in a room:
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+// List all participants
+const participants = await gambiarra.listParticipants();
+console.log(participants);
+// [
+//   {
+//     id: "kJ9mN2p4L8qR",
+//     nickname: "My Laptop",
+//     model: "llama3",
+//     endpoint: "http://localhost:11434",
+//     status: "online",
+//     ...
+//   }
+// ]
+
+// List available models (OpenAI-compatible format)
+const models = await gambiarra.listModels();
+console.log(models);
+// [
+//   {
+//     id: "kJ9mN2p4L8qR",
+//     nickname: "My Laptop",
+//     model: "llama3",
+//     endpoint: "http://localhost:11434"
+//   }
+// ]
+```
+
+## Monitor with the Terminal UI
+
+Gambiarra includes a beautiful Terminal UI for real-time monitoring. If you just run `gambiarra` without arguments, it opens the TUI:
+
+```bash
+gambiarra
+```
+
+From the TUI, you can:
+
+- See all available rooms
+- View participants and their health status
+- Monitor request activity in real-time
+- Create and join rooms interactively
+
+The TUI is perfect for debugging and monitoring your Gambiarra network.
+
+## Working with multiple participants
+
+The real power of Gambiarra comes from multiple participants. Open another terminal (or use another machine) and join the same room with a different model:
+
+```bash
+# Terminal 2 (or another machine)
+gambiarra join ABC123 \
+  --endpoint http://localhost:11434 \
+  --model mistral \
+  --nickname "Secondary GPU"
+```
+
+Now when you use `gambiarra.any()`, requests will be randomly distributed across both participants. When you use `gambiarra.model("mistral")`, requests will go to the second participant.
+
+## List all rooms
+
+See all available rooms on a hub:
+
+```bash
+gambiarra list
+```
+
+Output:
+
+```
+Available rooms:
+  - ABC123 (2 participants)
+  - XYZ789 (1 participant)
+```
+
+## Clean up
+
+When you're done:
+
+1. **Stop participants** - Press `Ctrl+C` in the terminal where you ran `gambiarra join`
+2. **Stop the hub** - Press `Ctrl+C` in the terminal where you ran `gambiarra serve`
+
+Rooms are stored in memory, so they'll be cleared when the hub stops.
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card
+    title="CLI reference"
+    icon="terminal"
+    href="/cli/serve"
+  >
+    Learn about all available CLI commands
+  </Card>
+  <Card
+    title="SDK reference"
+    icon="code"
+    href="/sdk/overview"
+  >
+    Explore advanced SDK features
+  </Card>
+  <Card
+    title="Architecture"
+    icon="diagram-project"
+    href="/guides/architecture"
+  >
+    Understand how Gambiarra works
+  </Card>
+  <Card
+    title="Troubleshooting"
+    icon="wrench"
+    href="/advanced/troubleshooting"
+  >
+    Common issues and solutions
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

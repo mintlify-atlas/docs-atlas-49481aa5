@@ -1,0 +1,500 @@
+---
+title: 'Participants API'
+description: 'Join rooms, manage health checks, and list participants'
+icon: 'users'
+---
+
+## Join Room
+
+Join a room as a participant with your LLM endpoint.
+
+<CodeGroup>
+```bash Basic Join
+curl -X POST http://localhost:3000/rooms/ABC123/join \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "nickname": "Alice",
+    "model": "llama3.2:3b",
+    "endpoint": "http://localhost:11434"
+  }'
+```
+
+```bash With Password
+curl -X POST http://localhost:3000/rooms/ABC123/join \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "nickname": "Alice",
+    "model": "llama3.2:3b",
+    "endpoint": "http://localhost:11434",
+    "password": "secret123"
+  }'
+```
+
+```bash With Specs and Config
+curl -X POST http://localhost:3000/rooms/ABC123/join \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "nickname": "Alice",
+    "model": "llama3.2:3b",
+    "endpoint": "http://localhost:11434",
+    "specs": {
+      "gpu": "NVIDIA RTX 4090",
+      "vram": 24,
+      "ram": 64,
+      "cpu": "AMD Ryzen 9 7950X"
+    },
+    "config": {
+      "temperature": 0.7,
+      "max_tokens": 2048
+    }
+  }'
+```
+</CodeGroup>
+
+### Endpoint
+
+```http
+POST /rooms/:code/join
+```
+
+### Path Parameters
+
+<ParamField path="code" type="string" required>
+  6-character room code (case-insensitive)
+</ParamField>
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  Unique participant ID (typically a UUID)
+</ParamField>
+
+<ParamField body="nickname" type="string" required>
+  Human-readable display name
+</ParamField>
+
+<ParamField body="model" type="string" required>
+  Name of the LLM model (e.g., "llama3.2:3b", "gpt-4")
+</ParamField>
+
+<ParamField body="endpoint" type="string" required>
+  OpenAI-compatible API endpoint URL
+</ParamField>
+
+<ParamField body="password" type="string">
+  Required if room is password-protected
+</ParamField>
+
+<ParamField body="specs" type="object">
+  Machine specifications (optional)
+  
+  <Expandable title="specs properties">
+    <ParamField body="gpu" type="string">
+      GPU model name
+    </ParamField>
+    
+    <ParamField body="vram" type="number">
+      VRAM in GB
+    </ParamField>
+    
+    <ParamField body="ram" type="number">
+      System RAM in GB
+    </ParamField>
+    
+    <ParamField body="cpu" type="string">
+      CPU model name
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="config" type="object">
+  Generation configuration (optional, OpenAI-compatible)
+  
+  <Expandable title="config properties">
+    <ParamField body="temperature" type="number">
+      Temperature (0-2)
+    </ParamField>
+    
+    <ParamField body="top_p" type="number">
+      Top-p sampling (0-1)
+    </ParamField>
+    
+    <ParamField body="max_tokens" type="number">
+      Maximum tokens to generate
+    </ParamField>
+    
+    <ParamField body="stop" type="array">
+      Stop sequences
+    </ParamField>
+    
+    <ParamField body="frequency_penalty" type="number">
+      Frequency penalty (-2 to 2)
+    </ParamField>
+    
+    <ParamField body="presence_penalty" type="number">
+      Presence penalty (-2 to 2)
+    </ParamField>
+    
+    <ParamField body="seed" type="number">
+      Random seed for reproducibility
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+**Status:** `201 Created`
+
+<ResponseField name="participant" type="object">
+  The participant information as stored
+  
+  <Expandable title="participant properties">
+    <ResponseField name="id" type="string">
+      Participant ID
+    </ResponseField>
+    
+    <ResponseField name="nickname" type="string">
+      Display name
+    </ResponseField>
+    
+    <ResponseField name="model" type="string">
+      Model name
+    </ResponseField>
+    
+    <ResponseField name="endpoint" type="string">
+      API endpoint URL
+    </ResponseField>
+    
+    <ResponseField name="specs" type="object">
+      Machine specifications
+    </ResponseField>
+    
+    <ResponseField name="config" type="object">
+      Generation config
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Status: "online", "busy", or "offline"
+    </ResponseField>
+    
+    <ResponseField name="joinedAt" type="number">
+      Join timestamp (milliseconds)
+    </ResponseField>
+    
+    <ResponseField name="lastSeen" type="number">
+      Last health check timestamp (milliseconds)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="roomId" type="string">
+  Internal room ID
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "participant": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "nickname": "Alice",
+    "model": "llama3.2:3b",
+    "endpoint": "http://localhost:11434",
+    "specs": {
+      "gpu": "NVIDIA RTX 4090",
+      "vram": 24,
+      "ram": 64,
+      "cpu": "AMD Ryzen 9 7950X"
+    },
+    "config": {
+      "temperature": 0.7,
+      "max_tokens": 2048
+    },
+    "status": "online",
+    "joinedAt": 1709409600000,
+    "lastSeen": 1709409600000
+  },
+  "roomId": "V1StGXR8_Z5jdHi6B-myT"
+}
+```
+
+### Error Responses
+
+<Accordion title="404 Not Found - Room">
+```json
+{
+  "error": "Room not found"
+}
+```
+</Accordion>
+
+<Accordion title="400 Bad Request - Missing Fields">
+```json
+{
+  "error": "Missing required fields: id, nickname, model, endpoint"
+}
+```
+</Accordion>
+
+<Accordion title="401 Unauthorized - Invalid Password">
+```json
+{
+  "error": "Invalid password"
+}
+```
+</Accordion>
+
+---
+
+## Leave Room
+
+Remove a participant from a room.
+
+```bash
+curl -X DELETE http://localhost:3000/rooms/ABC123/leave/550e8400-e29b-41d4-a716-446655440000
+```
+
+### Endpoint
+
+```http
+DELETE /rooms/:code/leave/:id
+```
+
+### Path Parameters
+
+<ParamField path="code" type="string" required>
+  Room code
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Participant ID to remove
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+<ResponseField name="success" type="boolean">
+  Always `true` on success
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "success": true
+}
+```
+
+### Error Responses
+
+<Accordion title="404 Not Found - Room">
+```json
+{
+  "error": "Room not found"
+}
+```
+</Accordion>
+
+<Accordion title="404 Not Found - Participant">
+```json
+{
+  "error": "Participant not found"
+}
+```
+</Accordion>
+
+---
+
+## Health Check
+
+Update a participant's last-seen timestamp and status.
+
+<Info>
+  Participants must send health checks at least every **30 seconds** (3x the check interval of 10s) or they will be marked offline.
+</Info>
+
+```bash
+curl -X POST http://localhost:3000/rooms/ABC123/health \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+### Endpoint
+
+```http
+POST /rooms/:code/health
+```
+
+### Path Parameters
+
+<ParamField path="code" type="string" required>
+  Room code
+</ParamField>
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  Participant ID
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+<ResponseField name="success" type="boolean">
+  Always `true` on success
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "success": true
+}
+```
+
+### Error Responses
+
+<Accordion title="404 Not Found - Room">
+```json
+{
+  "error": "Room not found"
+}
+```
+</Accordion>
+
+<Accordion title="400 Bad Request - Missing ID">
+```json
+{
+  "error": "Participant ID is required"
+}
+```
+</Accordion>
+
+<Accordion title="404 Not Found - Participant">
+```json
+{
+  "error": "Participant not found"
+}
+```
+</Accordion>
+
+---
+
+## List Participants
+
+Get all participants in a room.
+
+```bash
+curl http://localhost:3000/rooms/ABC123/participants
+```
+
+### Endpoint
+
+```http
+GET /rooms/:code/participants
+```
+
+### Path Parameters
+
+<ParamField path="code" type="string" required>
+  Room code
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+<ResponseField name="participants" type="array">
+  Array of participant objects
+  
+  <Expandable title="participant properties">
+    <ResponseField name="id" type="string">
+      Participant ID
+    </ResponseField>
+    
+    <ResponseField name="nickname" type="string">
+      Display name
+    </ResponseField>
+    
+    <ResponseField name="model" type="string">
+      Model name
+    </ResponseField>
+    
+    <ResponseField name="endpoint" type="string">
+      API endpoint URL
+    </ResponseField>
+    
+    <ResponseField name="specs" type="object">
+      Machine specifications
+    </ResponseField>
+    
+    <ResponseField name="config" type="object">
+      Generation config
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      "online", "busy", or "offline"
+    </ResponseField>
+    
+    <ResponseField name="joinedAt" type="number">
+      Join timestamp
+    </ResponseField>
+    
+    <ResponseField name="lastSeen" type="number">
+      Last health check timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "participants": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "nickname": "Alice",
+      "model": "llama3.2:3b",
+      "endpoint": "http://localhost:11434",
+      "specs": {},
+      "config": {},
+      "status": "online",
+      "joinedAt": 1709409600000,
+      "lastSeen": 1709409650000
+    },
+    {
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "nickname": "Bob",
+      "model": "gpt-4o",
+      "endpoint": "http://192.168.1.100:8080",
+      "specs": {
+        "gpu": "NVIDIA RTX 3090",
+        "vram": 24
+      },
+      "config": {
+        "temperature": 0.5
+      },
+      "status": "online",
+      "joinedAt": 1709409700000,
+      "lastSeen": 1709409740000
+    }
+  ]
+}
+```
+
+### Error Responses
+
+<Accordion title="404 Not Found - Room">
+```json
+{
+  "error": "Room not found"
+}
+```
+</Accordion>

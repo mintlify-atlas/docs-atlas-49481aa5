@@ -1,0 +1,298 @@
+---
+title: Introduction to Gambiarra
+description: Share local LLMs across your network effortlessly with Gambiarra
+---
+
+Gambiarra is a local-first LLM sharing system that allows multiple users on a network to pool their LLM resources together. Think of it as a "LLM Club" where everyone shares their Ollama, LM Studio, LocalAI, or any OpenAI-compatible endpoint.
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running with Gambiarra in under 5 minutes
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install the CLI and SDK for your environment
+  </Card>
+  <Card
+    title="CLI commands"
+    icon="terminal"
+    href="/cli/serve"
+  >
+    Learn about all available CLI commands
+  </Card>
+  <Card
+    title="SDK reference"
+    icon="code"
+    href="/sdk/overview"
+  >
+    Integrate Gambiarra with the Vercel AI SDK
+  </Card>
+</CardGroup>
+
+## Why Gambiarra?
+
+If you're working with local LLMs, you know the challenge: your gaming PC has a powerful GPU running Ollama, but your laptop doesn't. Your teammate has a different model you'd like to try. Gambiarra solves this by creating a shared pool of LLM resources on your local network.
+
+### Key features
+
+<CardGroup cols={2}>
+  <Card title="Local-first" icon="house">
+    Your data stays on your network. No cloud services, no external dependencies.
+  </Card>
+  <Card title="Universal compatibility" icon="plug">
+    Works with any OpenAI-compatible API: Ollama, LM Studio, LocalAI, vLLM, and more.
+  </Card>
+  <Card title="Vercel AI SDK integration" icon="code">
+    Drop-in replacement for your existing AI SDK workflows.
+  </Card>
+  <Card title="Auto-discovery" icon="radar">
+    mDNS/Bonjour support for zero-config networking.
+  </Card>
+  <Card title="Real-time monitoring" icon="chart-line">
+    Beautiful Terminal UI for tracking room activity and participant health.
+  </Card>
+  <Card title="Production ready" icon="shield-check">
+    Built with TypeScript, Bun, and modern tooling for reliability.
+  </Card>
+</CardGroup>
+
+## Use cases
+
+### Development teams
+
+Share expensive LLM endpoints across your team. Let your team access your high-powered GPU server without giving everyone SSH access.
+
+```typescript
+// Developer A shares their powerful GPU
+// Terminal 1: Start hub and join with Ollama
+$ gambiarra serve --mdns
+$ gambiarra create --name "Team Room"
+Room created! Code: ABC123
+
+$ gambiarra join ABC123 --model llama3 --endpoint http://localhost:11434
+
+// Developer B uses the shared model from their laptop
+// Terminal 2: Use the SDK
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Write a function to sort an array",
+});
+```
+
+### Hackathons
+
+Pool resources for AI projects. Everyone brings their laptop, and collectively you have access to multiple models running on different machines.
+
+### Research labs
+
+Coordinate LLM access across multiple workstations. Each researcher can contribute their local models to a shared pool.
+
+### Home labs
+
+Share your gaming PC's LLM with your laptop. Run the heavy model on your desktop, access it from anywhere on your network.
+
+### Education
+
+Classroom environments where students share compute resources. The instructor's machine runs the models, students access them for assignments.
+
+## How it works
+
+Gambiarra uses a simple **HTTP + SSE architecture** for universal compatibility:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    GAMBIARRA HUB (HTTP)                     │
+│                                                             │
+│  Endpoints:                                                 │
+│  • POST   /rooms                    (Create room)          │
+│  • GET    /rooms                    (List rooms)           │
+│  • POST   /rooms/:code/join         (Join room)            │
+│  • POST   /rooms/:code/v1/chat/completions (Proxy)        │
+│  • GET    /rooms/:code/events       (SSE updates)          │
+└─────────────────────────────────────────────────────────────┘
+       ▲                    ▲                      ▲
+       │ HTTP               │ HTTP                 │ SSE
+       │                    │                      │
+  ┌────┴────┐    ┌─────────┴────────┐      ┌──────┴─────┐
+  │   SDK   │    │  Participants    │      │    TUI     │
+  └─────────┘    └──────────────────┘      └────────────┘
+```
+
+### Core components
+
+**Hub**  
+Central HTTP server that routes requests and manages rooms. Can run on any machine on your network.
+
+**Participants**  
+LLM endpoints registered in a room. Each participant exposes an OpenAI-compatible API (Ollama, LM Studio, etc.).
+
+**SDK**  
+Vercel AI SDK provider that proxies requests to the hub. Use it in your applications just like any other AI SDK provider.
+
+**CLI**  
+Command-line tool for starting hubs, creating rooms, and joining as a participant.
+
+**TUI**  
+Real-time monitoring interface using Server-Sent Events. Track participant health, model usage, and room activity.
+
+### Model routing
+
+The SDK provides three ways to route requests:
+
+| Pattern | Example | Description |
+|---------|---------|-------------|
+| **Participant ID** | `gambiarra.participant("joao")` | Route to specific participant |
+| **Model name** | `gambiarra.model("llama3")` | Route to first participant with this model |
+| **Any** | `gambiarra.any()` | Route to random online participant |
+
+<CodeGroup>
+```typescript Specific participant
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const result = await generateText({
+  model: gambiarra.participant("joao"),
+  prompt: "Hello from a specific participant!",
+});
+```
+
+```typescript Specific model
+const result = await generateText({
+  model: gambiarra.model("llama3"),
+  prompt: "Hello from llama3!",
+});
+```
+
+```typescript Any available
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Hello from any participant!",
+});
+```
+</CodeGroup>
+
+## Architecture highlights
+
+### Health checking
+
+Participants automatically send health checks every 10 seconds. If a participant doesn't respond for 30 seconds, it's marked offline. This ensures your application always routes to available models.
+
+```typescript
+// Health checks happen automatically in packages/cli/src/commands/join.ts:182
+const healthInterval = setInterval(async () => {
+  const response = await fetch(`${hubUrl}/rooms/${code}/health`, {
+    method: "POST",
+    body: JSON.stringify({ id: participantId }),
+  });
+}, HEALTH_CHECK_INTERVAL); // 10 seconds
+```
+
+### OpenAI compatibility
+
+Gambiarra acts as a transparent proxy for OpenAI-compatible requests. Your existing code works without modification:
+
+```typescript
+// packages/core/src/hub.ts:269
+const targetUrl = `${participant.endpoint}/v1/chat/completions`;
+
+const response = await fetch(targetUrl, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ ...body, model: participant.model }),
+});
+```
+
+### Streaming support
+
+Full support for streaming responses using Server-Sent Events:
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { streamText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const stream = await streamText({
+  model: gambiarra.model("llama3"),
+  prompt: "Write a story about AI",
+});
+
+for await (const chunk of stream.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+## Security considerations
+
+<Warning>
+  Gambiarra is designed for **trusted local networks**. It currently has no built-in authentication and uses plain HTTP.
+</Warning>
+
+Best practices for production use:
+
+- Run on an isolated network (VPN, WireGuard, or air-gapped)
+- Use a reverse proxy (Caddy, Nginx) for HTTPS and authentication
+- Enable password protection for rooms when creating them:
+  ```bash
+  gambiarra create --name "Secure Room" --password mySecretPass
+  ```
+- Consider network-level security (firewall rules, VLANs)
+
+## Supported providers
+
+Gambiarra works with any **OpenAI-compatible API**:
+
+| Provider | Default endpoint | Notes |
+|----------|------------------|-------|
+| **Ollama** | `http://localhost:11434` | Most popular local LLM server |
+| **LM Studio** | `http://localhost:1234` | GUI-based LLM management |
+| **LocalAI** | `http://localhost:8080` | Self-hosted OpenAI alternative |
+| **vLLM** | `http://localhost:8000` | High-performance inference |
+| **text-generation-webui** | `http://localhost:5000` | Gradio-based interface |
+| **Custom** | Any URL | Any OpenAI-compatible endpoint |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install the CLI and SDK
+  </Card>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get started in 5 minutes
+  </Card>
+  <Card
+    title="CLI reference"
+    icon="terminal"
+    href="/cli/serve"
+  >
+    Learn all CLI commands
+  </Card>
+  <Card
+    title="SDK reference"
+    icon="code"
+    href="/sdk/overview"
+  >
+    Integrate with your app
+  </Card>
+</CardGroup>

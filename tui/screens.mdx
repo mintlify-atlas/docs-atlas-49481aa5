@@ -1,0 +1,313 @@
+---
+title: TUI Screens
+description: Detailed guide to each screen in the Gambiarra Terminal UI
+---
+
+The TUI is organized into distinct screens, each focused on a specific task. All screens follow a consistent layout with header, content area, and footer showing contextual shortcuts.
+
+## Main Menu
+
+**Navigation:** Launch point / Press any screen shortcut
+
+The main menu is your starting point, showing the Gambiarra ASCII logo and all available options:
+
+```
+██████╗  █████╗ ███╗   ███╗██████╗ ██╗ █████╗ ██████╗ ██████╗  █████╗
+...
+```
+
+**Options:**
+- `[h]` Hub - Start/stop local hub server
+- `[c]` Create Room - Create a new room
+- `[j]` Join Room - Join as LLM participant
+- `[l]` List Rooms - View available rooms
+- `[m]` Monitor - Monitor room activity
+
+**Navigation:**
+- Press the letter key to jump directly to that screen
+- Use `↑`/`↓` arrows or `j`/`k` to navigate menu items
+- Press `Enter` to select highlighted item
+- Press `q` to quit
+
+## Serve Hub
+
+**Shortcut:** `h` (from any screen)
+
+Manage the local Gambiarra hub server. The hub runs in the background and persists while you navigate to other screens.
+
+**When Hub is Stopped:**
+
+Configure and start the hub:
+
+- **Port** - Default `3000`, configurable
+- **Hostname** - Default `0.0.0.0` (all interfaces)
+- **mDNS Discovery** - Enable/disable automatic network discovery
+
+**Controls:**
+- `Tab` - Switch between fields
+- `m` - Toggle mDNS (when checkbox focused)
+- `Enter` - Start hub
+
+**When Hub is Running:**
+
+Displays:
+- Hub URL (e.g., `http://192.168.1.100:3000`)
+- Health endpoint URL
+- mDNS name if enabled
+
+**Controls:**
+- `Enter` - Stop hub
+- `Esc` - Go back (hub keeps running)
+
+<Note>
+The hub continues running even when you navigate away. You can start the hub, then go directly to monitor to watch rooms.
+</Note>
+
+## Create Room
+
+**Shortcut:** `c` (from any screen)
+
+Create a new room on the hub with optional password protection.
+
+**Form Fields:**
+
+1. **Room Name** (required) - Descriptive name for the room
+2. **Password** (optional) - Leave empty for public room
+
+**Controls:**
+- `Tab` - Switch between fields
+- `Enter` - Create room
+- `Esc` - Go back
+
+**Success Screen:**
+
+After creating a room, you'll see:
+
+- Large room code display (e.g., `ABC123`)
+- Room name confirmation
+- Next steps options:
+  - `[c]` Copy code to clipboard
+  - `[s]` Show/hide CLI share instructions
+  - `[j]` Join as participant
+  - `[m]` Go to monitor
+
+**Share Instructions Panel:**
+
+Press `s` to toggle a panel showing the CLI command others need to join:
+
+```bash
+gambiarra join ABC123 --endpoint <llm-url> --model <model>
+```
+
+## List Rooms
+
+**Shortcut:** `l` (from any screen)
+
+Browse all available rooms on the hub in a searchable table.
+
+**Table Columns:**
+- **Code** - Room code (e.g., `ABC123`)
+- **Name** - Room name
+- **Users** - Number of participants
+- **Created** - Timestamp
+
+**Controls:**
+- `↑`/`↓` - Navigate table rows
+- `Enter` or `m` - Monitor selected room
+- `j` - Join selected room as participant
+- `r` - Refresh room list
+- `Esc` - Go back
+
+<Tip>
+Use `r` to refresh if you expect new rooms to appear. The list doesn't auto-refresh to avoid disrupting navigation.
+</Tip>
+
+## Join Room
+
+**Shortcut:** `j` (from any screen)
+
+Join a room as an LLM participant to share your local model endpoint.
+
+**Essential Fields:**
+
+1. **Room Code** (required) - The room code to join
+2. **LLM Endpoint** (required) - Your OpenAI-compatible endpoint URL
+   - Automatically tests endpoint and fetches available models
+   - Shows ✓ if reachable, ✗ if unreachable
+   - Last used endpoint is remembered
+3. **Model** (required) - Model name to advertise
+   - If endpoint test succeeds, shows available models
+   - Press `1`-`5` to quickly select from suggestions
+
+**Advanced Options** (press `a` to toggle):
+
+4. **Nickname** - Display name (auto-generated if empty)
+5. **Password** - If room requires password
+6. **Share machine specs** - Checkbox to share CPU/RAM/GPU info
+   - Automatically detects specs if enabled
+
+**Controls:**
+- `Tab` - Switch between fields
+- `a` - Toggle advanced options
+- `1`-`5` - Select model from suggestions (when model field focused)
+- `Space` - Toggle "Share specs" checkbox (when focused)
+- `Enter` - Join room
+- `Esc` - Go back
+
+**Success Screen:**
+
+After joining:
+- Confirmation message with room code, nickname, and model
+- "Health checks running in background" notice
+- Options:
+  - `[m]` Go to monitor
+  - `[l]` Leave room
+
+<Warning>
+Leaving a room stops health checks. If you miss too many checks, you'll be marked offline by the hub.
+</Warning>
+
+## Monitor (Dashboard)
+
+**Shortcut:** `m` (from any screen)
+
+The monitor screen is the primary interface for watching room activity in real-time.
+
+**Layout:**
+
+```
+┌─ Header ──────────────────────────────────────────┐
+│ Hub: http://localhost:3000 | 2 rooms              │
+│ [Participant badge if joined]                      │
+├─ Room Tabs ──────────────────────────────────────┤
+│ [ABC123*] [XYZ789]                                │
+├─ Content ────────────────────────────────────────┤
+│ Participants │ Activity Log                       │
+│ Panel        │ Panel                              │
+│              │                                     │
+└─ Footer ─────────────────────────────────────────┘
+```
+
+**Participants Panel:**
+
+Shows all participants in the active room with:
+- Status indicator (●/◐/○ for online/busy/offline)
+- Nickname
+- Model name
+- Optional: Expanded view showing machine specs and request count
+
+**Activity Log Panel:**
+
+Live scrolling log of events:
+- Participant joins (green)
+- Participant leaves (red)
+- Participant goes offline (gray)
+- LLM requests started (processing)
+- LLM requests completed (success)
+- LLM requests failed (error)
+
+**Controls:**
+- `Tab` - Switch between rooms
+- `a` - Add new room to monitor
+- `c` - Create new room (and add to monitor)
+- `e` - Expand/collapse participant details
+- `r` - Refresh current room (reconnect SSE)
+- `l` - Leave room (if you're a participant)
+- `Esc` - Go back
+
+**Participant Badge:**
+
+If you're joined in a room, the header shows:
+- `◉ Joined as participant in ABC123`
+- Health indicator showing last check status and time
+
+**Real-Time Updates:**
+
+The monitor uses Server-Sent Events (SSE) to automatically update:
+- Participant status changes
+- New joins and leaves
+- LLM request activity
+
+No manual refresh needed!
+
+## Add Room Modal
+
+**Trigger:** Press `a` from Monitor screen
+
+Quick modal to add an existing room to your monitor tabs.
+
+**Field:**
+- Room Code - Enter the code of the room to monitor
+
+**Controls:**
+- `Enter` - Add room and switch to it
+- `Esc` - Cancel
+
+## Confirmation Modals
+
+The TUI shows confirmation dialogs for destructive actions:
+
+**Quit Confirmation:**
+- Appears when pressing `q` if hub is running or you're joined in a room
+- Shows reason (e.g., "Hub is running and You are joined in a room")
+- `Enter` - Confirm quit
+- `Esc` - Cancel
+
+**Leave Room Confirmation:**
+- Appears when pressing `l` from monitor if you're a participant
+- Warns that health checks will stop
+- `Enter` - Confirm leave
+- `Esc` - Cancel
+
+## Screen Layout Pattern
+
+All screens follow a consistent structure:
+
+```tsx
+<box flexDirection="column" flexGrow={1}>
+  {/* Header - Screen title and status */}
+  <box padding={1}>
+    <text fg={colors.primary}>Screen Title</text>
+  </box>
+
+  {/* Content - Main screen content */}
+  <box flexDirection="column" flexGrow={1} padding={2}>
+    {/* Screen-specific content */}
+  </box>
+
+  {/* Footer - Contextual shortcuts */}
+  <Footer canGoBack={canGoBack} shortcuts={[...]} />
+</box>
+```
+
+This pattern ensures:
+- Consistent visual hierarchy
+- Predictable layout across screens
+- Easy discovery of available actions via footer
+
+## Navigation Flow
+
+Typical workflows:
+
+**Start Hub → Create Room → Monitor:**
+```
+menu → [h] serve hub → [Enter] start
+     → [c] create room → [Enter] create
+     → [m] monitor
+```
+
+**Join Existing Room:**
+```
+menu → [j] join room → fill fields → [Enter] join
+     → [m] monitor
+```
+
+**Browse Rooms → Join:**
+```
+menu → [l] list rooms → [↓] select → [j] join
+     → fill remaining fields → [Enter]
+```
+
+<Tip>
+Use global shortcuts (`h`, `c`, `j`, `l`, `m`) from any screen to jump directly to where you need to be. No need to navigate back to menu first.
+</Tip>

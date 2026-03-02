@@ -1,0 +1,446 @@
+---
+title: 'Chat Completions API'
+description: 'OpenAI-compatible chat completions with model routing'
+icon: 'messages'
+---
+
+## List Models
+
+Retrieve available models in a room (online participants).
+
+```bash
+curl http://localhost:3000/rooms/ABC123/v1/models
+```
+
+### Endpoint
+
+```http
+GET /rooms/:code/v1/models
+```
+
+### Path Parameters
+
+<ParamField path="code" type="string" required>
+  Room code
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+OpenAI-compatible models list with Gambiarra extensions.
+
+<ResponseField name="object" type="string">
+  Always `"list"`
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of model objects
+  
+  <Expandable title="model properties">
+    <ResponseField name="id" type="string">
+      Participant ID (use as model identifier in chat completions)
+    </ResponseField>
+    
+    <ResponseField name="object" type="string">
+      Always `"model"`
+    </ResponseField>
+    
+    <ResponseField name="created" type="number">
+      Unix timestamp (seconds) when participant joined
+    </ResponseField>
+    
+    <ResponseField name="owned_by" type="string">
+      Participant nickname
+    </ResponseField>
+    
+    <ResponseField name="gambiarra" type="object">
+      Gambiarra-specific metadata
+      
+      <Expandable title="gambiarra properties">
+        <ResponseField name="nickname" type="string">
+          Participant display name
+        </ResponseField>
+        
+        <ResponseField name="model" type="string">
+          Actual model name
+        </ResponseField>
+        
+        <ResponseField name="endpoint" type="string">
+          Participant endpoint URL
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "object": "model",
+      "created": 1709409600,
+      "owned_by": "Alice",
+      "gambiarra": {
+        "nickname": "Alice",
+        "model": "llama3.2:3b",
+        "endpoint": "http://localhost:11434"
+      }
+    },
+    {
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "object": "model",
+      "created": 1709409700,
+      "owned_by": "Bob",
+      "gambiarra": {
+        "nickname": "Bob",
+        "model": "gpt-4o",
+        "endpoint": "http://192.168.1.100:8080"
+      }
+    }
+  ]
+}
+```
+
+### Error Responses
+
+<Accordion title="404 Not Found - Room">
+```json
+{
+  "error": "Room not found"
+}
+```
+</Accordion>
+
+---
+
+## Chat Completions
+
+Proxy OpenAI-compatible chat completion requests to room participants.
+
+<CodeGroup>
+```bash Specific Participant
+curl -X POST http://localhost:3000/rooms/ABC123/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "550e8400-e29b-41d4-a716-446655440000",
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ]
+  }'
+```
+
+```bash By Model Name
+curl -X POST http://localhost:3000/rooms/ABC123/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "model:llama3.2:3b",
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ]
+  }'
+```
+
+```bash Random Participant
+curl -X POST http://localhost:3000/rooms/ABC123/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "*",
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ]
+  }'
+```
+
+```bash Streaming
+curl -X POST http://localhost:3000/rooms/ABC123/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "*",
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ],
+    "stream": true
+  }'
+```
+</CodeGroup>
+
+### Endpoint
+
+```http
+POST /rooms/:code/v1/chat/completions
+```
+
+### Path Parameters
+
+<ParamField path="code" type="string" required>
+  Room code
+</ParamField>
+
+### Request Body
+
+<ParamField body="model" type="string" required>
+  Model routing specification:
+  - **Participant ID**: Route to specific participant (e.g., `"550e8400-e29b-41d4-a716-446655440000"`)
+  - **Model name prefix**: Route to first online participant with matching model (e.g., `"model:llama3.2:3b"`)
+  - **Wildcard**: Route to random online participant (use `"*"` or `"any"`)
+</ParamField>
+
+<ParamField body="messages" type="array" required>
+  Array of message objects (OpenAI format)
+  
+  <Expandable title="message properties">
+    <ParamField body="role" type="string" required>
+      Message role: "system", "user", "assistant", "tool", or "function"
+    </ParamField>
+    
+    <ParamField body="content" type="string" required>
+      Message content (can be null for tool messages)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="stream" type="boolean">
+  Enable streaming responses (default: `false`)
+</ParamField>
+
+<ParamField body="temperature" type="number">
+  Temperature (0-2)
+</ParamField>
+
+<ParamField body="top_p" type="number">
+  Top-p sampling (0-1)
+</ParamField>
+
+<ParamField body="max_tokens" type="number">
+  Maximum tokens to generate
+</ParamField>
+
+<ParamField body="stop" type="string | array">
+  Stop sequences
+</ParamField>
+
+<ParamField body="frequency_penalty" type="number">
+  Frequency penalty (-2 to 2)
+</ParamField>
+
+<ParamField body="presence_penalty" type="number">
+  Presence penalty (-2 to 2)
+</ParamField>
+
+<ParamField body="seed" type="number">
+  Random seed for reproducibility
+</ParamField>
+
+<Info>
+  Additional provider-specific parameters are passed through to the participant endpoint.
+</Info>
+
+### Response (Non-Streaming)
+
+**Status:** `200 OK`
+
+OpenAI-compatible chat completion response from the participant.
+
+<ResponseField name="id" type="string">
+  Completion ID
+</ResponseField>
+
+<ResponseField name="object" type="string">
+  Always `"chat.completion"`
+</ResponseField>
+
+<ResponseField name="created" type="number">
+  Unix timestamp (seconds)
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  Model used by the participant
+</ResponseField>
+
+<ResponseField name="choices" type="array">
+  Array of completion choices
+  
+  <Expandable title="choice properties">
+    <ResponseField name="index" type="number">
+      Choice index
+    </ResponseField>
+    
+    <ResponseField name="message" type="object">
+      Response message
+      
+      <Expandable title="message properties">
+        <ResponseField name="role" type="string">
+          Always `"assistant"`
+        </ResponseField>
+        
+        <ResponseField name="content" type="string">
+          Response content
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="finish_reason" type="string">
+      "stop", "length", "content_filter", or "tool_calls"
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="usage" type="object">
+  Token usage statistics
+  
+  <Expandable title="usage properties">
+    <ResponseField name="prompt_tokens" type="number">
+      Tokens in prompt
+    </ResponseField>
+    
+    <ResponseField name="completion_tokens" type="number">
+      Tokens in completion
+    </ResponseField>
+    
+    <ResponseField name="total_tokens" type="number">
+      Total tokens
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Response (Non-Streaming)
+
+```json
+{
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1709409600,
+  "model": "llama3.2:3b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! How can I help you today?"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 20,
+    "total_tokens": 30
+  }
+}
+```
+
+### Response (Streaming)
+
+**Status:** `200 OK`
+
+**Content-Type:** `text/event-stream`
+
+Server-Sent Events stream with OpenAI-compatible chat completion chunks.
+
+```text
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1709409600,"model":"llama3.2:3b","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1709409600,"model":"llama3.2:3b","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1709409600,"model":"llama3.2:3b","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+```
+
+### Error Responses
+
+<Accordion title="404 Not Found - Room">
+```json
+{
+  "error": "Room not found"
+}
+```
+</Accordion>
+
+<Accordion title="404 Not Found - No Available Participant">
+```json
+{
+  "error": "No available participant for the requested model"
+}
+```
+</Accordion>
+
+<Accordion title="503 Service Unavailable - Participant Offline">
+```json
+{
+  "error": "Participant is offline"
+}
+```
+</Accordion>
+
+<Accordion title="502 Bad Gateway - Proxy Failed">
+```json
+{
+  "error": "Failed to proxy request: Connection refused"
+}
+```
+</Accordion>
+
+## Model Routing Logic
+
+The hub routes requests based on the `model` field:
+
+### 1. Wildcard (`"*"` or `"any"`)
+
+Selects a **random online participant** from the room.
+
+```json
+{"model": "*"}
+```
+
+Use case: Load balancing or when you don't care which participant handles the request.
+
+### 2. Model Name Prefix (`"model:<name>"`)
+
+Routes to the **first online participant** with a matching model name.
+
+```json
+{"model": "model:llama3.2:3b"}
+```
+
+Use case: Target specific model capabilities without knowing participant IDs.
+
+### 3. Participant ID (direct)
+
+Routes to a **specific participant** by ID.
+
+```json
+{"model": "550e8400-e29b-41d4-a716-446655440000"}
+```
+
+Use case: Sticky routing, debugging, or targeting a specific machine.
+
+### 4. Fallback: Model Name (without prefix)
+
+If the value doesn't match a participant ID, treats it as a model name.
+
+```json
+{"model": "llama3.2:3b"}
+```
+
+Use case: Convenience when model names are unique in the room.
+
+<Warning>
+  Model routing only considers participants with status `"online"`. Offline or busy participants are skipped.
+</Warning>
+
+## Streaming Behavior
+
+When `stream: true`:
+
+1. Hub proxies the streaming response from the participant
+2. Response uses `Content-Type: text/event-stream`
+3. Stream is passed through without modification
+4. Connection is kept alive until completion or error
+
+**SSE events are NOT broadcast** for streaming chunks. Use the `/rooms/:code/events` endpoint to monitor `llm:request` and `llm:complete` events.

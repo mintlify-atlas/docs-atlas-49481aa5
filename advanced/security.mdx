@@ -1,0 +1,415 @@
+---
+title: Security Considerations
+description: Security model, threat analysis, and best practices for Gambiarra deployments
+---
+
+## Security Model
+
+Gambiarra is designed as a **local-first, trusted network** system. The security model makes specific assumptions about the deployment environment and trust relationships.
+
+### Core Assumptions
+
+<Warning>
+  Gambiarra is NOT designed for public internet deployment without additional security measures. It assumes a trusted local network where all participants are known and authorized.
+</Warning>
+
+1. **Network Trust**: All machines on the network are trusted
+2. **Participant Trust**: All participants are authorized to access shared models
+3. **Local Deployment**: Hub and participants run on a private network (home, office, VPN)
+4. **No Built-in Auth**: The hub does not enforce authentication by default
+5. **Plain HTTP**: Communication uses unencrypted HTTP by default
+
+## Threat Model
+
+### In-Scope Threats
+
+These are threats Gambiarra is designed to help mitigate:
+
+| Threat | Mitigation |
+|--------|------------|
+| **Room squatting** | 6-character random codes (36^6 = 2B+ combinations) |
+| **Password sniffing** | Passwords are hashed with argon2id before storage |
+| **Replay attacks** | Room codes are single-use per session |
+
+### Out-of-Scope Threats
+
+<Warning>
+  The following threats are **not** mitigated by Gambiarra alone and require additional security measures:
+</Warning>
+
+| Threat | Why Out of Scope |
+|--------|------------------|
+| **Network eavesdropping** | No TLS/encryption by default |
+| **Unauthorized network access** | No authentication on hub endpoints |
+| **Man-in-the-middle attacks** | Plain HTTP communication |
+| **DoS/resource exhaustion** | No rate limiting or quotas |
+| **Malicious participants** | Assumes all participants are trusted |
+| **Data exfiltration** | Participants have direct access to all models |
+
+## Password Protection
+
+Gambiarra supports optional password protection for rooms.
+
+### How It Works
+
+**Creating a password-protected room:**
+
+```bash
+gambiarra create --name "Private Room" --password "secret123"
+```
+
+**Joining a password-protected room:**
+
+```bash
+gambiarra join ABC123 \
+  --model llama3 \
+  --password "secret123"
+```
+
+### Password Security
+
+<Note>
+  Passwords are hashed using **argon2id** (Bun's native password API) before storage. The hash is never exposed in API responses.
+</Note>
+
+**Implementation details:**
+- Hashing: `Bun.password.hash()` with argon2id
+- Verification: `Bun.password.verify()` for constant-time comparison
+- Storage: Hash stored in `RoomInfo.passwordHash` (see `packages/core/src/room.ts:8-18`)
+- API: `passwordHash` field stripped from public responses (see `packages/core/src/hub.ts:56-58`)
+
+### Password Limitations
+
+<Warning>
+  Password protection does NOT encrypt data in transit. An attacker with network access can still intercept traffic even if they don't know the room password.
+</Warning>
+
+Passwords only prevent:
+- Unauthorized room joining
+- Casual access by other network users
+
+Passwords do NOT prevent:
+- Network sniffing
+- MITM attacks
+- Traffic analysis
+
+## Production Deployment
+
+### Recommended Architecture
+
+For production or internet-exposed deployments, use this layered security approach:
+
+```
+┌─────────────────────────────────────────────────┐
+│                   Internet                      │
+└─────────────────┬───────────────────────────────┘
+                  │
+                  │ HTTPS (TLS)
+                  ▼
+┌─────────────────────────────────────────────────┐
+│           Reverse Proxy (Caddy/Nginx)           │
+│                                                  │
+│  • TLS termination                              │
+│  • Authentication (Basic Auth, OAuth, mTLS)     │
+│  • Rate limiting                                │
+│  • Request filtering                            │
+│  • CORS configuration                           │
+└─────────────────┬───────────────────────────────┘
+                  │
+                  │ HTTP (trusted network)
+                  ▼
+┌─────────────────────────────────────────────────┐
+│            Gambiarra Hub (:3000)                │
+│                                                  │
+│  • Room management                              │
+│  • Participant routing                          │
+│  • SSE events                                   │
+└─────────────────────────────────────────────────┘
+```
+
+### Reverse Proxy Configuration
+
+#### Caddy
+
+Caddy provides automatic HTTPS with Let's Encrypt:
+
+```caddy
+gambiarra.example.com {
+    reverse_proxy localhost:3000
+    
+    # Basic authentication
+    basicauth /* {
+        admin $2a$14$...
+    }
+    
+    # Rate limiting
+    rate_limit {
+        zone static_ratelimit
+        key {remote_host}
+        events 100
+        window 1m
+    }
+}
+```
+
+#### Nginx
+
+Nginx with manual certificate management:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name gambiarra.example.com;
+    
+    ssl_certificate /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+    
+    # Basic authentication
+    auth_basic "Gambiarra Hub";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+    
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # SSE support
+        proxy_buffering off;
+        proxy_cache off;
+        chunked_transfer_encoding off;
+    }
+    
+    # Rate limiting
+    limit_req_zone $binary_remote_addr zone=gambiarra:10m rate=10r/s;
+    limit_req zone=gambiarra burst=20 nodelay;
+}
+```
+
+<Note>
+  When using a reverse proxy, ensure SSE (Server-Sent Events) connections are properly configured with `proxy_buffering off` to avoid breaking real-time updates.
+</Note>
+
+### VPN/Tunnel Access
+
+For remote access without exposing the hub to the internet:
+
+#### WireGuard
+
+```ini
+[Interface]
+PrivateKey = <private-key>
+Address = 10.0.0.1/24
+ListenPort = 51820
+
+[Peer]
+PublicKey = <client-public-key>
+AllowedIPs = 10.0.0.2/32
+```
+
+Clients connect to the VPN and access `http://10.0.0.1:3000` directly.
+
+#### Tailscale
+
+Tailscale provides zero-config mesh VPN:
+
+```bash
+# Install on hub machine
+curl -fsSL https://tailscale.com/install.sh | sh
+tailscale up
+
+# Start Gambiarra
+gambiarra serve --port 3000
+
+# Access from any Tailscale-connected device
+gambiarra join ABC123 --hub http://100.x.x.x:3000
+```
+
+### Network Isolation
+
+#### Docker Network
+
+Isolate Gambiarra in a Docker network:
+
+```yaml
+version: '3.8'
+services:
+  hub:
+    image: gambiarra:latest
+    networks:
+      - gambiarra
+    ports:
+      - "127.0.0.1:3000:3000"
+  
+  nginx:
+    image: nginx:alpine
+    networks:
+      - gambiarra
+      - public
+    ports:
+      - "443:443"
+
+networks:
+  gambiarra:
+    internal: true
+  public:
+    driver: bridge
+```
+
+#### Firewall Rules
+
+Restrict access to the hub port:
+
+```bash
+# Allow only local network
+sudo ufw allow from 192.168.1.0/24 to any port 3000 proto tcp
+
+# Or allow only localhost
+sudo ufw allow from 127.0.0.1 to any port 3000 proto tcp
+
+# Deny all other access
+sudo ufw deny 3000/tcp
+```
+
+## Best Practices
+
+### For Development/Testing
+
+1. Use password-protected rooms
+2. Run on localhost or trusted network only
+3. Don't expose hub port to the internet
+4. Use short-lived rooms (recreate frequently)
+
+### For Production
+
+<Warning>
+  Never expose Gambiarra directly to the internet without authentication and encryption.
+</Warning>
+
+1. **Always use a reverse proxy** with TLS
+2. **Implement authentication** at the proxy level
+3. **Use VPN** for remote access
+4. **Enable rate limiting** to prevent abuse
+5. **Monitor access logs** for suspicious activity
+6. **Rotate room codes** regularly
+7. **Use strong passwords** for room protection
+8. **Isolate network** from other services
+
+### For Teams
+
+1. Establish clear usage policies
+2. Document who has access
+3. Use descriptive participant nicknames
+4. Set up monitoring/alerting
+5. Regular security audits
+6. Incident response plan
+
+## Data Privacy
+
+### What Data is Shared
+
+When joining a room, participants share:
+
+- **Participant ID**: Random UUID
+- **Nickname**: User-provided or auto-generated
+- **Model name**: LLM model identifier
+- **Endpoint URL**: Where the LLM is hosted
+- **Machine specs**: CPU, RAM, GPU (optional with `--no-specs`)
+- **Last seen timestamp**: For health monitoring
+
+### What Data is NOT Shared
+
+- **Prompts/completions**: Not logged by the hub
+- **API keys**: Not required or stored
+- **User credentials**: No user accounts
+- **Model weights**: Never transmitted
+
+<Note>
+  The hub acts as a transparent proxy for chat completions. Prompt and completion data passes through the hub but is not logged or persisted.
+</Note>
+
+### Hiding Machine Specs
+
+Use `--no-specs` to prevent sharing hardware information:
+
+```bash
+gambiarra join ABC123 \
+  --model llama3 \
+  --no-specs
+```
+
+## Compliance Considerations
+
+### GDPR
+
+- No personal data is collected by default
+- Participant nicknames should not contain PII
+- Machine specs are optional
+- No data persistence in memory-only mode
+
+### Corporate Policies
+
+Before deploying in a corporate environment:
+
+1. Review data loss prevention (DLP) policies
+2. Check if LLM usage requires approval
+3. Verify network security requirements
+4. Ensure compliance with IT security standards
+5. Document architecture and data flows
+
+## Incident Response
+
+### Compromised Room Code
+
+If a room code is leaked:
+
+1. All participants leave the room
+2. Create a new room with a fresh code
+3. Use a password for the new room
+4. Notify all authorized participants
+
+### Unauthorized Access
+
+If unauthorized access is detected:
+
+1. Check hub access logs
+2. Identify the source IP/participant
+3. Reset room codes
+4. Review firewall rules
+5. Consider implementing authentication
+
+### Suspicious Traffic
+
+If unusual activity is observed:
+
+1. Monitor SSE events for anomalies
+2. Check participant health status
+3. Review model routing patterns
+4. Analyze request frequencies
+5. Consider rate limiting
+
+## Security Roadmap
+
+Planned security enhancements (see README.md:540-549):
+
+- [ ] Built-in authentication & authorization
+- [ ] Participant quotas and rate limiting
+- [ ] Request queueing for busy participants
+- [ ] End-to-end encryption option
+- [ ] Audit logging
+- [ ] Role-based access control (RBAC)
+
+## Reporting Security Issues
+
+If you discover a security vulnerability:
+
+1. **Do not** open a public GitHub issue
+2. Email the maintainers directly
+3. Provide detailed reproduction steps
+4. Allow time for a patch before disclosure
+
+See [CONTRIBUTING.md](https://github.com/arthurbm/gambiarra/blob/main/CONTRIBUTING.md) for contact information.

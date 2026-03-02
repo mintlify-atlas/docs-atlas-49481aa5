@@ -1,0 +1,530 @@
+---
+title: Usage Guide
+description: Comprehensive examples of using the Gambiarra SDK with Vercel AI SDK
+---
+
+This guide covers common usage patterns for the Gambiarra SDK, from basic chat completions to advanced routing strategies.
+
+## Basic Setup
+
+First, import the necessary functions and create a provider:
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({
+  roomCode: "ABC123",
+  hubUrl: "http://localhost:3000", // optional
+});
+```
+
+## Chat Completions
+
+### Simple Text Generation
+
+Generate text using any available participant:
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Explain quantum computing in simple terms",
+});
+
+console.log(result.text);
+```
+
+### Multi-turn Conversations
+
+Build conversational AI applications:
+
+```typescript
+import { generateText } from "ai";
+
+const result = await generateText({
+  model: gambiarra.any(),
+  messages: [
+    { role: "system", content: "You are a helpful assistant." },
+    { role: "user", content: "What is TypeScript?" },
+    { role: "assistant", content: "TypeScript is a typed superset of JavaScript." },
+    { role: "user", content: "How do I use it with React?" },
+  ],
+});
+
+console.log(result.text);
+```
+
+### With Generation Options
+
+Customize generation parameters:
+
+```typescript
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Write a short poem about coding",
+  temperature: 0.9,
+  maxTokens: 200,
+  topP: 0.95,
+});
+```
+
+## Streaming Responses
+
+### Basic Streaming
+
+Stream text generation for real-time output:
+
+```typescript
+import { streamText } from "ai";
+
+const result = await streamText({
+  model: gambiarra.any(),
+  prompt: "Write a story about a robot learning to paint",
+});
+
+// Stream text chunks
+for await (const chunk of result.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+### React Server Component Streaming
+
+Integrate with Next.js App Router:
+
+```typescript app/api/chat/route.ts
+import { createGambiarra } from "gambiarra-sdk";
+import { streamText } from "ai";
+
+export const runtime = "edge";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+export async function POST(req: Request) {
+  const { messages } = await req.json();
+
+  const result = await streamText({
+    model: gambiarra.any(),
+    messages,
+  });
+
+  return result.toDataStreamResponse();
+}
+```
+
+### Client-Side Hook
+
+Use with `useChat` hook:
+
+```typescript app/page.tsx
+"use client";
+
+import { useChat } from "ai/react";
+
+export default function ChatPage() {
+  const { messages, input, handleInputChange, handleSubmit } = useChat({
+    api: "/api/chat",
+  });
+
+  return (
+    <div>
+      {messages.map((m) => (
+        <div key={m.id}>
+          <strong>{m.role}:</strong> {m.content}
+        </div>
+      ))}
+      <form onSubmit={handleSubmit}>
+        <input value={input} onChange={handleInputChange} />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+## Routing Strategies
+
+### Participant Routing
+
+Target a specific participant by ID:
+
+```typescript
+const result = await generateText({
+  model: gambiarra.participant("participant-123"),
+  prompt: "Hello from a specific machine!",
+});
+```
+
+Use case: Route requests to machines with specific hardware (e.g., high VRAM for large models).
+
+### Model Routing
+
+Use the first available participant running a specific model:
+
+```typescript
+const result = await generateText({
+  model: gambiarra.model("llama3"),
+  prompt: "Generate text using Llama 3",
+});
+```
+
+The SDK automatically routes to the first online participant with the specified model name.
+
+### Any Routing (Random)
+
+Load balance across all online participants:
+
+```typescript
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "This will use any available participant",
+});
+```
+
+Equivalent to:
+```typescript
+const result = await generateText({
+  model: gambiarra.participant("*"),
+  prompt: "This will use any available participant",
+});
+```
+
+### Dynamic Routing Example
+
+Choose routing strategy based on context:
+
+```typescript
+function getModel(requirement: "fast" | "accurate" | "any") {
+  switch (requirement) {
+    case "fast":
+      return gambiarra.model("llama3"); // Smaller, faster model
+    case "accurate":
+      return gambiarra.model("llama3-70b"); // Larger, more accurate
+    case "any":
+    default:
+      return gambiarra.any(); // Any available
+  }
+}
+
+const result = await generateText({
+  model: getModel("fast"),
+  prompt: "Quick response needed",
+});
+```
+
+## Listing Participants and Models
+
+### List All Participants
+
+Get information about all participants in a room:
+
+```typescript
+const participants = await gambiarra.listParticipants();
+
+participants.forEach((p) => {
+  console.log(`${p.nickname} (${p.id})`);
+  console.log(`  Model: ${p.model}`);
+  console.log(`  Status: ${p.status}`);
+  console.log(`  Endpoint: ${p.endpoint}`);
+  if (p.specs) {
+    console.log(`  GPU: ${p.specs.gpu}`);
+    console.log(`  VRAM: ${p.specs.vram}GB`);
+  }
+});
+```
+
+### List Available Models
+
+Get OpenAI-compatible model list:
+
+```typescript
+const models = await gambiarra.listModels();
+
+models.forEach((m) => {
+  console.log(`${m.id} - ${m.nickname}`);
+  console.log(`  Model: ${m.model}`);
+  console.log(`  Endpoint: ${m.endpoint}`);
+});
+```
+
+### Filter by Hardware Specs
+
+Find participants with specific hardware:
+
+```typescript
+const participants = await gambiarra.listParticipants();
+
+const highVram = participants.filter(
+  (p) => p.status === "online" && (p.specs?.vram ?? 0) >= 16
+);
+
+console.log(`Found ${highVram.length} participants with 16GB+ VRAM`);
+```
+
+## HTTP Client Usage
+
+### Creating and Managing Rooms
+
+Use the HTTP client for room management:
+
+```typescript
+import { createClient } from "gambiarra-sdk";
+
+const client = createClient({ hubUrl: "http://localhost:3000" });
+
+// Create a room
+const { room, hostId } = await client.create("My AI Room");
+console.log(`Room code: ${room.code}`);
+console.log(`Host ID: ${hostId}`);
+
+// List all rooms
+const rooms = await client.list();
+rooms.forEach((r) => {
+  console.log(`${r.name} (${r.code}) - ${r.participantCount} participants`);
+});
+```
+
+### Joining as a Participant
+
+Join a room with your local LLM endpoint:
+
+```typescript
+const { participant, roomId } = await client.join("ABC123", {
+  id: "my-participant-id",
+  nickname: "My Ollama Instance",
+  model: "llama3",
+  endpoint: "http://localhost:11434",
+  specs: {
+    gpu: "RTX 4090",
+    vram: 24,
+    ram: 64,
+    cpu: "AMD Ryzen 9 7950X",
+  },
+  config: {
+    temperature: 0.7,
+    max_tokens: 2048,
+  },
+});
+
+console.log(`Joined room ${roomId} as ${participant.nickname}`);
+```
+
+### Password-Protected Rooms
+
+Create and join password-protected rooms:
+
+```typescript
+// Create with password
+const { room, hostId } = await client.create("Private Room", "secret123");
+
+// Join with password
+await client.join(room.code, {
+  id: "participant-1",
+  nickname: "Bot",
+  model: "llama3",
+  endpoint: "http://localhost:11434",
+  password: "secret123", // Required!
+});
+```
+
+### Health Checks
+
+Send periodic health checks to maintain online status:
+
+```typescript
+const participantId = "my-participant-id";
+const roomCode = "ABC123";
+
+// Send health check every 10 seconds
+const intervalId = setInterval(async () => {
+  try {
+    await client.healthCheck(roomCode, participantId);
+    console.log("Health check sent");
+  } catch (error) {
+    console.error("Health check failed:", error);
+  }
+}, 10_000);
+
+// Clean up on exit
+process.on("SIGINT", async () => {
+  clearInterval(intervalId);
+  await client.leave(roomCode, participantId);
+  process.exit(0);
+});
+```
+
+## Error Handling
+
+### ClientError Handling
+
+Handle HTTP client errors with type safety:
+
+```typescript
+import { createClient, ClientError } from "gambiarra-sdk";
+
+const client = createClient();
+
+try {
+  await client.join("INVALID", {
+    id: "test",
+    nickname: "Test",
+    model: "llama3",
+    endpoint: "http://localhost:11434",
+  });
+} catch (error) {
+  if (error instanceof ClientError) {
+    console.error(`HTTP ${error.status}: ${error.message}`);
+    console.error("Response:", error.response);
+  } else {
+    console.error("Unexpected error:", error);
+  }
+}
+```
+
+### AI SDK Error Handling
+
+Handle generation errors gracefully:
+
+```typescript
+import { generateText } from "ai";
+
+try {
+  const result = await generateText({
+    model: gambiarra.any(),
+    prompt: "Hello!",
+  });
+  console.log(result.text);
+} catch (error) {
+  if (error instanceof Error) {
+    if (error.message.includes("No participants")) {
+      console.error("No online participants available");
+    } else if (error.message.includes("timeout")) {
+      console.error("Request timed out");
+    } else {
+      console.error("Generation failed:", error.message);
+    }
+  }
+}
+```
+
+### Retry Logic
+
+Implement automatic retries with exponential backoff:
+
+```typescript
+async function generateWithRetry(
+  prompt: string,
+  maxRetries = 3
+): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const result = await generateText({
+        model: gambiarra.any(),
+        prompt,
+      });
+      return result.text;
+    } catch (error) {
+      const isLastAttempt = i === maxRetries - 1;
+      if (isLastAttempt) throw error;
+      
+      const delay = Math.pow(2, i) * 1000; // Exponential backoff
+      console.log(`Retry ${i + 1}/${maxRetries} in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error("All retries failed");
+}
+
+const text = await generateWithRetry("Hello, world!");
+```
+
+## Advanced Patterns
+
+### Local Hub with Integrated Client
+
+Create a hub and use it immediately:
+
+```typescript
+import { hub, createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+// Create local hub
+const myHub = hub.create({ port: 3000 });
+console.log(`Hub running at ${myHub.url}`);
+
+// Use it immediately (need to join as participant first via CLI/client)
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Test local hub",
+});
+
+console.log(result.text);
+
+// Cleanup
+myHub.close();
+```
+
+### Multi-Room Routing
+
+Work with multiple rooms simultaneously:
+
+```typescript
+const room1 = createGambiarra({ roomCode: "FAST" });
+const room2 = createGambiarra({ roomCode: "ACCURATE" });
+
+// Fast responses from room 1
+const quick = await generateText({
+  model: room1.any(),
+  prompt: "Quick answer needed",
+  maxTokens: 100,
+});
+
+// Detailed responses from room 2
+const detailed = await generateText({
+  model: room2.any(),
+  prompt: "Detailed explanation needed",
+  maxTokens: 1000,
+});
+```
+
+### Custom Base URL Access
+
+Access the OpenAI-compatible endpoint directly:
+
+```typescript
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+console.log("Base URL:", gambiarra.baseURL);
+// Output: http://localhost:3000/rooms/ABC123/v1
+
+// Use with any OpenAI-compatible client
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: gambiarra.baseURL,
+  apiKey: "not-needed", // Gambiarra doesn't require API keys
+});
+
+const completion = await openai.chat.completions.create({
+  model: "*", // Any participant
+  messages: [{ role: "user", content: "Hello!" }],
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/sdk/api-reference">
+    Explore the complete API documentation
+  </Card>
+  <Card title="CLI Guide" icon="terminal" href="/cli/serve">
+    Learn about the Gambiarra CLI
+  </Card>
+</CardGroup>

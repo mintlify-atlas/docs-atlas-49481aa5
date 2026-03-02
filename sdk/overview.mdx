@@ -1,0 +1,163 @@
+---
+title: SDK Overview
+description: Learn about the Gambiarra SDK and how it integrates with Vercel AI SDK
+---
+
+The Gambiarra SDK (`gambiarra-sdk`) is a TypeScript library that provides seamless integration between Gambiarra's distributed LLM coordination system and the Vercel AI SDK. It enables you to route AI requests across multiple shared LLM endpoints on your local network.
+
+## What is the Gambiarra SDK?
+
+The Gambiarra SDK is a lightweight wrapper that:
+
+- **Provides an AI SDK-compatible provider** for accessing shared LLMs through Gambiarra rooms
+- **Manages HTTP communication** with Gambiarra hubs via a type-safe client
+- **Supports intelligent routing** to specific participants, models, or random online endpoints
+- **Enables local and remote hub management** with comprehensive TypeScript types
+
+## Why Use the SDK?
+
+### OpenAI-Compatible Interface
+
+The SDK leverages `@ai-sdk/openai-compatible` to provide a familiar interface that works with any Vercel AI SDK function:
+
+```typescript
+import { createGambiarra } from "gambiarra-sdk";
+import { generateText } from "ai";
+
+const gambiarra = createGambiarra({ roomCode: "ABC123" });
+
+const result = await generateText({
+  model: gambiarra.any(),
+  prompt: "Explain quantum computing",
+});
+```
+
+### Flexible Routing Strategies
+
+Route requests based on your needs:
+
+- **Participant routing**: Target specific machines by ID
+- **Model routing**: Use the first available participant running a specific model
+- **Any routing**: Load balance across all online participants
+
+### Type Safety
+
+Full TypeScript support with exported types from `@gambiarra/core`:
+
+```typescript
+import type {
+  ParticipantInfo,
+  RoomInfo,
+  GenerationConfig,
+  MachineSpecs,
+} from "gambiarra-sdk";
+```
+
+## Key Concepts
+
+### Providers
+
+A provider is an AI SDK-compatible wrapper around a Gambiarra room. Create one with `createGambiarra()`:
+
+```typescript
+const gambiarra = createGambiarra({
+  roomCode: "ABC123",
+  hubUrl: "http://localhost:3000", // optional, defaults to localhost:3000
+});
+```
+
+### Routing Methods
+
+The provider exposes three routing methods:
+
+<CardGroup cols={3}>
+  <Card title="participant()" icon="user">
+    Route to a specific participant by ID
+  </Card>
+  <Card title="model()" icon="microchip">
+    Route to the first participant running a specific model
+  </Card>
+  <Card title="any()" icon="shuffle">
+    Route to any random online participant
+  </Card>
+</CardGroup>
+
+### HTTP Client
+
+For direct hub management, use the HTTP client:
+
+```typescript
+import { createClient } from "gambiarra-sdk";
+
+const client = createClient({ hubUrl: "http://hub.local:3000" });
+
+// Create rooms, join as participants, manage health checks
+const { room, hostId } = await client.create("My Room");
+```
+
+### Namespaces
+
+The SDK re-exports organized namespaces from `@gambiarra/core`:
+
+- `rooms` - Room and participant management
+- `participants` - Participant creation and configuration
+- `hub` - Local hub creation
+
+## Architecture
+
+The SDK is a **zero-duplication wrapper** around `@gambiarra/core`:
+
+```
+gambiarra-sdk
+├── provider.ts       (AI SDK provider)
+├── client.ts         (HTTP client)
+├── types.ts          (re-exported from core)
+├── rooms.ts          (re-exported from core)
+├── participants.ts   (re-exported from core)
+├── hub.ts            (re-exported from core)
+└── utils.ts          (re-exported from core)
+```
+
+This design ensures:
+- Minimal bundle size with tree-shaking support
+- Single source of truth for types and logic
+- Easy updates from core package
+
+## When to Use What
+
+<AccordionGroup>
+  <Accordion title="Use the AI SDK Provider when...">
+    - You're building AI applications with Vercel AI SDK
+    - You want to use `generateText()`, `streamText()`, or other AI SDK functions
+    - You need automatic request routing and load balancing
+  </Accordion>
+  
+  <Accordion title="Use the HTTP Client when...">
+    - You're managing rooms and participants programmatically
+    - You're building custom tooling around Gambiarra hubs
+    - You need direct control over room lifecycle and health checks
+  </Accordion>
+  
+  <Accordion title="Use the Namespaces when...">
+    - You're creating a local hub in your application
+    - You need low-level access to room and participant management
+    - You're building custom integrations or extensions
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/sdk/installation">
+    Install the SDK and set up your environment
+  </Card>
+  <Card title="Usage Guide" icon="code" href="/sdk/usage">
+    Learn how to use the SDK with practical examples
+  </Card>
+  <Card title="API Reference" icon="book" href="/sdk/api-reference">
+    Explore the complete API documentation
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get started with Gambiarra in 5 minutes
+  </Card>
+</CardGroup>

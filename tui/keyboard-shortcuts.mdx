@@ -1,0 +1,318 @@
+---
+title: Keyboard Shortcuts
+description: Complete reference of keyboard shortcuts in the Gambiarra Terminal UI
+---
+
+The TUI is designed for keyboard-driven workflows. Every action can be performed without touching the mouse.
+
+## Global Shortcuts
+
+These work from any screen (except when typing in text inputs):
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| `h` | **Hub** | Jump to Serve Hub screen |
+| `c` | **Create** | Jump to Create Room screen |
+| `j` | **Join** | Jump to Join Room screen |
+| `l` | **List** | Jump to List Rooms screen |
+| `m` | **Monitor** | Jump to Monitor screen |
+| `q` | **Quit** | Quit TUI (with confirmation if needed) |
+| `Esc` | **Back** | Go back in navigation history |
+
+<Note>
+Global shortcuts are disabled when you're typing in text fields to avoid conflicts. Press `Esc` or `Tab` to exit the input field first.
+</Note>
+
+## Main Menu
+
+| Key | Action |
+|-----|--------|
+| `h` | Go to Hub screen |
+| `c` | Go to Create Room screen |
+| `j` | Go to Join Room screen |
+| `l` | Go to List Rooms screen |
+| `m` | Go to Monitor screen |
+| `↑` / `k` | Navigate up |
+| `↓` / `j` | Navigate down |
+| `Enter` | Select highlighted option |
+| `q` | Quit |
+
+## Serve Hub
+
+**When Hub is Stopped:**
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Next field |
+| `m` | Toggle mDNS (when checkbox focused) |
+| `Enter` | Start hub |
+| `Esc` | Go back |
+
+**When Hub is Running:**
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Stop hub |
+| `Esc` | Go back (hub keeps running) |
+
+## Create Room
+
+**Form View:**
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Next field |
+| `Enter` | Create room |
+| `Esc` | Go back |
+
+**Success View:**
+
+| Key | Action |
+|-----|--------|
+| `c` | Copy room code to clipboard |
+| `s` | Show/hide share instructions |
+| `j` | Join room as participant |
+| `m` | Go to monitor |
+| `Esc` | Go back |
+
+## List Rooms
+
+| Key | Action |
+|-----|--------|
+| `↑` | Previous room |
+| `↓` | Next room |
+| `Enter` | Monitor selected room |
+| `m` | Monitor selected room |
+| `j` | Join selected room |
+| `r` | Refresh room list |
+| `Esc` | Go back |
+
+## Join Room
+
+**Form View:**
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Next field |
+| `a` | Toggle advanced options |
+| `1`-`5` | Select model from suggestions (when model field focused) |
+| `Space` | Toggle "Share specs" checkbox (when focused) |
+| `Enter` | Join room |
+| `Esc` | Go back |
+
+**Success View:**
+
+| Key | Action |
+|-----|--------|
+| `m` | Go to monitor |
+| `l` | Leave room |
+| `Esc` | Go back |
+
+## Monitor (Dashboard)
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Switch between rooms |
+| `a` | Add room to monitor |
+| `c` | Create new room (and add to monitor) |
+| `e` | Expand/collapse participant details |
+| `r` | Refresh current room (reconnect SSE) |
+| `l` | Leave room (if you're a participant) |
+| `Esc` | Go back |
+
+<Tip>
+**Monitor Workflow Tips:**
+- Use `Tab` to quickly cycle through rooms when monitoring multiple
+- Use `e` to toggle detailed specs view when you need more information
+- Press `r` if SSE connection seems stuck
+</Tip>
+
+## Add Room Modal
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Add room and go to it |
+| `Esc` | Cancel |
+
+## Confirmation Modals
+
+All confirmation dialogs (quit, leave room):
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Confirm action |
+| `Esc` | Cancel |
+
+## Common Patterns
+
+### Form Navigation
+
+All forms use consistent shortcuts:
+
+- **`Tab`** - Move to next field (cycles back to first)
+- **`Shift+Tab`** - Move to previous field (on some screens)
+- **`Enter`** - Submit form
+- **`Esc`** - Cancel and go back
+
+Typing automatically updates the focused field. No need to press Enter after each field.
+
+### List Navigation
+
+All lists and tables use arrow keys or vim-style keys:
+
+- **`↑` / `k`** - Previous item
+- **`↓` / `j`** - Next item
+- **`Enter`** - Select/activate item
+
+Selection wraps around (pressing down on last item goes to first).
+
+### Toggle Controls
+
+Checkboxes and toggles:
+
+- **`Tab`** to focus the checkbox
+- **`Space`** or **assigned key** (like `m` for mDNS) to toggle
+- Visual indicator shows state: `[x]` checked, `[ ]` unchecked
+
+## Keyboard Tips
+
+### Quick Navigation
+
+Chain global shortcuts to jump through screens quickly:
+
+```
+[h] Start hub → [c] Create room → [m] Monitor
+```
+
+No need to wait for animations or confirmations between screens.
+
+### Escape Hatch
+
+Press `Esc` multiple times to navigate back through your history:
+
+```
+Monitor → [Esc] → Join Room → [Esc] → Main Menu
+```
+
+Your navigation history is preserved, so you can always get back.
+
+### Text Input Focus
+
+When a text input is focused:
+- Typing updates the field automatically
+- Most shortcuts are disabled to avoid conflicts
+- Press `Tab` to move to next field
+- Press `Esc` to cancel
+
+### Model Selection Shortcut
+
+On the Join Room screen, when the model field is focused:
+
+```
+1. Focus model field (Tab to it)
+2. Endpoint test shows available models:
+   1 llama3
+   2 codellama
+   3 mistral
+3. Press 1, 2, or 3 to instantly fill model
+```
+
+This is much faster than typing full model names.
+
+## Accessibility
+
+### Visual Feedback
+
+The TUI provides clear visual feedback for keyboard actions:
+
+- **Focused fields** - Highlighted background color
+- **Selected items** - Arrow indicator or highlight
+- **Status changes** - Color-coded indicators (green/orange/red)
+- **Active shortcuts** - Always visible in footer
+
+### Learn as You Go
+
+The footer on every screen shows contextual shortcuts:
+
+```
+┌──────────────────────────────────────────┐
+│ Tab Next field  Enter Create  Esc Back │
+└──────────────────────────────────────────┘
+```
+
+You don't need to memorize everything. Just glance at the footer to see what's available.
+
+### Consistent Keybindings
+
+Shortcuts are mnemonic and consistent:
+
+- `h` - **H**ub
+- `c` - **C**reate
+- `j` - **J**oin
+- `l` - **L**ist
+- `m` - **M**onitor
+- `r` - **R**efresh
+- `e` - **E**xpand
+- `a` - **A**dd / **A**dvanced
+- `s` - **S**hare
+- `q` - **Q**uit
+
+## Customization
+
+<Warning>
+Keyboard shortcuts are currently hardcoded and not customizable. This may change in future versions.
+</Warning>
+
+If you need custom keybindings, you'll need to modify the source code:
+
+1. Global shortcuts: `apps/tui/src/app.tsx`
+2. Screen-specific shortcuts: `apps/tui/src/screens/<screen-name>.tsx`
+
+Each screen uses the `useKeyboard` hook from OpenTUI to handle key events:
+
+```tsx
+useKeyboard((key) => {
+  if (key.name === "escape") {
+    onBack();
+  }
+  // ... other keys
+}, { release: false });
+```
+
+## Reference: Full Shortcut Table
+
+| Context | Key | Action |
+|---------|-----|--------|
+| **Global** | `h` | Jump to Hub |
+| **Global** | `c` | Jump to Create |
+| **Global** | `j` | Jump to Join |
+| **Global** | `l` | Jump to List |
+| **Global** | `m` | Jump to Monitor |
+| **Global** | `q` | Quit (with confirmation) |
+| **Global** | `Esc` | Go back |
+| **Menu** | `↑`/`↓`/`j`/`k` | Navigate |
+| **Menu** | `Enter` | Select |
+| **Hub** | `Tab` | Next field |
+| **Hub** | `m` | Toggle mDNS |
+| **Hub** | `Enter` | Start/Stop |
+| **Create** | `Tab` | Next field |
+| **Create** | `Enter` | Create |
+| **Create** | `c` | Copy code (success) |
+| **Create** | `s` | Toggle share panel (success) |
+| **List** | `↑`/`↓` | Navigate |
+| **List** | `Enter`/`m` | Monitor room |
+| **List** | `j` | Join room |
+| **List** | `r` | Refresh |
+| **Join** | `Tab` | Next field |
+| **Join** | `a` | Toggle advanced |
+| **Join** | `1`-`5` | Select model |
+| **Join** | `Space` | Toggle checkbox |
+| **Join** | `Enter` | Join |
+| **Monitor** | `Tab` | Switch room |
+| **Monitor** | `a` | Add room |
+| **Monitor** | `c` | Create room |
+| **Monitor** | `e` | Expand/collapse |
+| **Monitor** | `r` | Refresh room |
+| **Monitor** | `l` | Leave room |
+| **Modals** | `Enter` | Confirm |
+| **Modals** | `Esc` | Cancel |

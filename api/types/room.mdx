@@ -1,0 +1,111 @@
+---
+title: Room
+description: Room types and interfaces for managing collaborative spaces in Gambiarra
+---
+
+# Room Types
+
+Room types define the structure and metadata for collaborative spaces where participants share LLM endpoints.
+
+## RoomInfo
+
+Internal room information schema including all fields used by the hub.
+
+```typescript
+import { z } from "zod";
+
+const RoomInfoInternal = z.object({
+  id: z.string(),
+  code: z.string(),
+  name: z.string(),
+  hostId: z.string(),
+  createdAt: z.number(),
+  passwordHash: z.string().optional(),
+});
+
+type RoomInfo = z.infer<typeof RoomInfoInternal>;
+```
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the room
+</ResponseField>
+
+<ResponseField name="code" type="string" required>
+  Human-readable room code used for joining (e.g., "swift-eagle-42")
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Display name of the room
+</ResponseField>
+
+<ResponseField name="hostId" type="string" required>
+  ID of the participant who created the room
+</ResponseField>
+
+<ResponseField name="createdAt" type="number" required>
+  Unix timestamp (milliseconds) when the room was created
+</ResponseField>
+
+<ResponseField name="passwordHash" type="string">
+  Optional hashed password for room protection. Only stored internally.
+</ResponseField>
+
+## RoomInfoPublic
+
+Public room information schema that excludes sensitive fields like `passwordHash`. This is used in API responses.
+
+```typescript
+const RoomInfoPublic = RoomInfoInternal.omit({ passwordHash: true });
+
+type RoomInfoPublic = z.infer<typeof RoomInfoPublic>;
+```
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the room
+</ResponseField>
+
+<ResponseField name="code" type="string" required>
+  Human-readable room code used for joining
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Display name of the room
+</ResponseField>
+
+<ResponseField name="hostId" type="string" required>
+  ID of the participant who created the room
+</ResponseField>
+
+<ResponseField name="createdAt" type="number" required>
+  Unix timestamp (milliseconds) when the room was created
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { RoomInfo, RoomInfoPublic } from "@gambiarra/core";
+
+// Internal usage (includes passwordHash)
+const internalRoom: RoomInfo = {
+  id: "room_abc123",
+  code: "swift-eagle-42",
+  name: "Team Dev Session",
+  hostId: "participant_xyz789",
+  createdAt: Date.now(),
+  passwordHash: "$2b$10$...",
+};
+
+// Public API response (passwordHash omitted)
+const publicRoom: RoomInfoPublic = {
+  id: "room_abc123",
+  code: "swift-eagle-42",
+  name: "Team Dev Session",
+  hostId: "participant_xyz789",
+  createdAt: Date.now(),
+};
+```
+
+## Related Types
+
+- [ParticipantInfo](/api/types/participant) - Participant metadata within a room
+- [Protocol Messages](/api/types/protocol) - Room-related SSE events and messages

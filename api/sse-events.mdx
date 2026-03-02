@@ -1,0 +1,357 @@
+---
+title: 'Server-Sent Events'
+description: 'Real-time room event monitoring via SSE'
+icon: 'tower-broadcast'
+---
+
+## Connect to Events
+
+Establish a Server-Sent Events (SSE) connection to receive real-time updates for a room.
+
+```bash
+curl -N http://localhost:3000/rooms/ABC123/events
+```
+
+### Endpoint
+
+```http
+GET /rooms/:code/events
+```
+
+### Path Parameters
+
+<ParamField path="code" type="string" required>
+  Room code
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+**Content-Type:** `text/event-stream`
+
+SSE stream with room events.
+
+### Connection Headers
+
+```http
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+Access-Control-Allow-Origin: *
+```
+
+### Initial Connection Event
+
+On connection, the hub sends a `connected` event:
+
+```text
+event: connected
+data: {"clientId":"550e8400-e29b-41d4-a716-446655440000"}
+
+```
+
+<ResponseField name="clientId" type="string">
+  Unique client connection ID (UUID)
+</ResponseField>
+
+---
+
+## Event Types
+
+### room:created
+
+Broadcast globally when a new room is created.
+
+```text
+event: room:created
+data: {"id":"V1StGXR8_Z5jdHi6B-myT","code":"ABC123","name":"My Team Room","hostId":"550e8400-e29b-41d4-a716-446655440000","createdAt":1709409600000}
+
+```
+
+<ResponseField name="id" type="string">
+  Room ID
+</ResponseField>
+
+<ResponseField name="code" type="string">
+  Room code
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Room name
+</ResponseField>
+
+<ResponseField name="hostId" type="string">
+  Creator's UUID
+</ResponseField>
+
+<ResponseField name="createdAt" type="number">
+  Creation timestamp (milliseconds)
+</ResponseField>
+
+---
+
+### participant:joined
+
+Broadcast to room when a participant joins.
+
+```text
+event: participant:joined
+data: {"id":"550e8400-e29b-41d4-a716-446655440000","nickname":"Alice","model":"llama3.2:3b","endpoint":"http://localhost:11434","specs":{},"config":{},"status":"online","joinedAt":1709409600000,"lastSeen":1709409600000}
+
+```
+
+<ResponseField name="id" type="string">
+  Participant ID
+</ResponseField>
+
+<ResponseField name="nickname" type="string">
+  Display name
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  Model name
+</ResponseField>
+
+<ResponseField name="endpoint" type="string">
+  API endpoint URL
+</ResponseField>
+
+<ResponseField name="specs" type="object">
+  Machine specifications
+</ResponseField>
+
+<ResponseField name="config" type="object">
+  Generation config
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  "online", "busy", or "offline"
+</ResponseField>
+
+<ResponseField name="joinedAt" type="number">
+  Join timestamp
+</ResponseField>
+
+<ResponseField name="lastSeen" type="number">
+  Last health check timestamp
+</ResponseField>
+
+---
+
+### participant:left
+
+Broadcast to room when a participant leaves.
+
+```text
+event: participant:left
+data: {"participantId":"550e8400-e29b-41d4-a716-446655440000"}
+
+```
+
+<ResponseField name="participantId" type="string">
+  ID of the participant who left
+</ResponseField>
+
+---
+
+### participant:offline
+
+Broadcast to room when a participant is marked offline due to missed health checks.
+
+<Info>
+  Participants are marked offline after **30 seconds** without a health check (3 missed intervals).
+</Info>
+
+```text
+event: participant:offline
+data: {"participantId":"550e8400-e29b-41d4-a716-446655440000"}
+
+```
+
+<ResponseField name="participantId" type="string">
+  ID of the offline participant
+</ResponseField>
+
+---
+
+### llm:request
+
+Broadcast to room when a chat completion request is routed to a participant.
+
+```text
+event: llm:request
+data: {"participantId":"550e8400-e29b-41d4-a716-446655440000","model":"llama3.2:3b"}
+
+```
+
+<ResponseField name="participantId" type="string">
+  ID of the participant handling the request
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  Model specified in the original request
+</ResponseField>
+
+---
+
+### llm:complete
+
+<Note>
+  **Not currently implemented** in hub.ts. Reserved for future use.
+</Note>
+
+Would broadcast to room when a chat completion finishes successfully.
+
+---
+
+### llm:error
+
+Broadcast to room when a chat completion request fails.
+
+```text
+event: llm:error
+data: {"participantId":"550e8400-e29b-41d4-a716-446655440000","error":"Connection refused"}
+
+```
+
+<ResponseField name="participantId" type="string">
+  ID of the participant that failed
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message
+</ResponseField>
+
+---
+
+## Event Filtering
+
+Clients connected to `/rooms/:code/events` receive:
+
+- **Room-specific events**: `participant:joined`, `participant:left`, `participant:offline`, `llm:request`, `llm:error`
+- **Global events**: `room:created` (all clients)
+
+Clients **do not** receive events from other rooms.
+
+---
+
+## Example: JavaScript Client
+
+```javascript
+const eventSource = new EventSource('http://localhost:3000/rooms/ABC123/events');
+
+// Connection established
+eventSource.addEventListener('connected', (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Connected:', data.clientId);
+});
+
+// Participant joined
+eventSource.addEventListener('participant:joined', (event) => {
+  const participant = JSON.parse(event.data);
+  console.log('Participant joined:', participant.nickname);
+});
+
+// Participant left
+eventSource.addEventListener('participant:left', (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Participant left:', data.participantId);
+});
+
+// Participant offline
+eventSource.addEventListener('participant:offline', (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Participant offline:', data.participantId);
+});
+
+// LLM request started
+eventSource.addEventListener('llm:request', (event) => {
+  const data = JSON.parse(event.data);
+  console.log('LLM request:', data.participantId, data.model);
+});
+
+// LLM request failed
+eventSource.addEventListener('llm:error', (event) => {
+  const data = JSON.parse(event.data);
+  console.error('LLM error:', data.participantId, data.error);
+});
+
+// Room created (global)
+eventSource.addEventListener('room:created', (event) => {
+  const room = JSON.parse(event.data);
+  console.log('Room created:', room.name, room.code);
+});
+
+// Connection error
+eventSource.onerror = (error) => {
+  console.error('SSE error:', error);
+  eventSource.close();
+};
+```
+
+---
+
+## Example: curl
+
+```bash
+curl -N http://localhost:3000/rooms/ABC123/events
+```
+
+**Output:**
+```text
+event: connected
+data: {"clientId":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}
+
+event: participant:joined
+data: {"id":"550e8400-e29b-41d4-a716-446655440000","nickname":"Alice","model":"llama3.2:3b","endpoint":"http://localhost:11434","specs":{},"config":{},"status":"online","joinedAt":1709409600000,"lastSeen":1709409600000}
+
+event: llm:request
+data: {"participantId":"550e8400-e29b-41d4-a716-446655440000","model":"*"}
+
+...
+```
+
+---
+
+## Connection Management
+
+### Client Disconnect
+
+When a client disconnects:
+1. Hub automatically removes the client from the SSE client map
+2. No `participant:left` event is broadcast (SSE clients are observers, not participants)
+
+### Hub Restart
+
+When the hub restarts:
+1. All SSE connections are closed
+2. All rooms and participants are cleared from memory
+3. Clients must reconnect and participants must rejoin
+
+### Cleanup
+
+The hub closes all SSE connections when calling `Hub.close()`:
+
+```typescript
+const hub = createHub();
+
+// Later...
+hub.close(); // Closes all SSE connections, stops health checks, clears rooms
+```
+
+---
+
+## Error Response
+
+<Accordion title="404 Not Found - Room">
+**Status:** `404`
+
+```json
+{
+  "error": "Room not found"
+}
+```
+
+SSE connection is rejected if the room doesn't exist.
+</Accordion>

@@ -1,0 +1,166 @@
+---
+title: Terminal UI Overview
+description: Interactive terminal interface for monitoring and managing Gambiarra rooms
+---
+
+The Gambiarra Terminal UI (TUI) is an interactive terminal application built with OpenTUI and React that provides real-time monitoring and management of rooms and participants.
+
+## Why Use the TUI?
+
+The TUI is the fastest way to:
+
+- **Monitor multiple rooms** - Watch participant status and LLM request activity across rooms
+- **Manage the hub** - Start and stop the local hub server with a simple interface
+- **Create and join rooms** - Quickly create rooms or join as an LLM participant
+- **Real-time updates** - See participants join/leave and track LLM requests as they happen
+- **Keyboard-driven workflow** - Navigate and control everything without touching the mouse
+
+## Launching the TUI
+
+The TUI launches automatically when you run the CLI without arguments in a TTY:
+
+```bash
+gambiarra
+```
+
+Or start it explicitly from the monorepo:
+
+```bash
+bun run dev:tui
+```
+
+From the `apps/tui` directory:
+
+```bash
+bun run dev
+```
+
+<Note>
+The TUI connects to `http://localhost:3000` by default. Make sure to start a hub first if you want to monitor existing rooms.
+</Note>
+
+## Tech Stack
+
+The TUI is built with modern technologies optimized for terminal applications:
+
+| Layer | Technology | Purpose |
+|-------|------------|----------|
+| **UI Framework** | OpenTUI (`@opentui/react`) | React reconciler for terminal rendering with flexbox layout |
+| **Server State** | TanStack Query | API calls, automatic caching, and background refetch |
+| **Client State** | Zustand | Navigation history, hub URL, and session management |
+| **Real-time** | SSE (Server-Sent Events) | Live updates for participant and room events |
+| **Validation** | Zod | Type-safe API response and SSE event validation |
+
+## Main Features
+
+### Hub Management
+
+Start and stop the local Gambiarra hub server directly from the TUI. Configure the port, hostname, and enable mDNS discovery for automatic network detection.
+
+### Room Operations
+
+- **Create rooms** - Generate new rooms with optional password protection
+- **List rooms** - Browse all available rooms on the hub
+- **Join as participant** - Share your LLM endpoint with a room
+- **Monitor activity** - Watch real-time participant status and request logs
+
+### Multi-Room Monitoring
+
+The monitor screen is the heart of the TUI:
+
+- Track multiple rooms simultaneously with tabbed interface
+- See participant online/offline/busy status with visual indicators
+- View live activity log showing joins, leaves, and LLM requests
+- Expand participant cards to see detailed specs and performance metrics
+- Auto-refresh room state via Server-Sent Events
+
+### Participant Session
+
+When you join a room as a participant:
+
+- Health checks run automatically in the background (every 10s)
+- Your participant badge appears in the header showing health status
+- Monitor screen highlights your own participant card
+- Leave the room with a single keypress
+
+### Navigation
+
+Screen-based routing with history stack:
+
+- Use `Escape` to go back through your navigation history
+- Global shortcuts (`h`, `c`, `j`, `l`, `m`) jump to any screen instantly
+- Footer shows contextual keyboard shortcuts for current screen
+
+## Architecture
+
+The TUI follows a clean architecture with clear separation of concerns:
+
+```
+src/
+├── screens/          # Full-page views (menu, create, join, monitor, etc.)
+├── components/       # Reusable UI components (footer, tables, inputs)
+├── hooks/            # Business logic and data fetching
+│   ├── queries/      # TanStack Query hooks for API calls
+│   ├── use-sse.ts    # Server-Sent Events handling
+│   └── use-rooms.ts  # Room state and event processing
+├── store/            # Zustand stores for client state
+└── types.ts          # Zod schemas and design tokens
+```
+
+### State Management Strategy
+
+**Server State (TanStack Query)** - Data from the hub API:
+- Room lists and participant data
+- Health checks and machine specs
+- Automatic caching and background refetch
+
+**Client State (Zustand)** - UI-only state:
+- Navigation history and current screen
+- Hub URL and connection settings
+- Participant session status
+
+**Local State (React)** - Component-specific:
+- Form inputs and focus management
+- UI toggles and modals
+
+### Real-Time Updates
+
+SSE events keep room data in sync:
+
+- `participant:joined` / `participant:left` - Update participant lists
+- `participant:offline` - Mark participants that miss heartbeats
+- `llm:request` / `llm:complete` / `llm:error` - Track LLM request lifecycle
+- `room:created` - Update room metadata
+
+Event handlers are pure functions that take current state and event data, return new state. This makes them easy to test and reason about.
+
+## Design System
+
+The TUI uses a consistent color palette defined in `types.ts`:
+
+| Color | Usage |
+|-------|-------|
+| **Cyan** (`#00FFFF`) | Headers, focused elements, primary actions |
+| **Green** (`#00FF00`) | Online status, success messages, confirmations |
+| **Orange** (`#FFAA00`) | Busy/processing state, warnings |
+| **Red** (`#FF5555`) | Offline status, errors |
+| **Pink** (`#FF79C6`) | Performance metrics, accents |
+| **Gray** (`#666666`) | Secondary text, muted elements |
+
+Status indicators:
+- `●` Online (green)
+- `◐` Busy/processing (orange)
+- `○` Offline (gray)
+- `✓` Complete (green)
+- `✗` Error (red)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Screens" icon="window" href="/tui/screens">
+    Learn about each screen and how to navigate between them
+  </Card>
+  <Card title="Keyboard Shortcuts" icon="keyboard" href="/tui/keyboard-shortcuts">
+    Master all keyboard shortcuts for efficient workflow
+  </Card>
+</CardGroup>

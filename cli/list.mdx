@@ -1,0 +1,249 @@
+---
+title: list
+description: List available rooms on a Gambiarra hub
+---
+
+The `list` command displays all active rooms on a Gambiarra hub, showing room codes, names, participant counts, and creation times.
+
+## Usage
+
+```bash
+gambiarra list [options]
+```
+
+## Options
+
+<ParamField path="--hub" type="string" default="http://localhost:3000">
+  Hub URL to query. Also accepts `-H` shorthand.
+  
+  ```bash
+  gambiarra list --hub http://192.168.1.10:3000
+  ```
+</ParamField>
+
+<ParamField path="--json" type="boolean" default="false">
+  Output as JSON for programmatic use. Also accepts `-j` shorthand.
+  
+  ```bash
+  gambiarra list --json
+  ```
+</ParamField>
+
+## Examples
+
+### List rooms on local hub
+
+Query the default local hub:
+
+```bash
+gambiarra list
+```
+
+**Output:**
+```
+Available rooms:
+
+  ABC123  My AI Lab
+    Participants: 3
+    Created: 3/2/2026, 2:30:45 PM
+
+  XYZ789  Team Collaboration
+    Participants: 1
+    Created: 3/2/2026, 1:15:20 PM
+
+  DEF456  Research Project
+    Participants: 5
+    Created: 3/2/2026, 9:00:10 AM
+```
+
+### List rooms on remote hub
+
+Query a hub running on a different machine:
+
+```bash
+gambiarra list --hub http://192.168.1.10:3000
+```
+
+### JSON output
+
+Get structured JSON output for scripting:
+
+```bash
+gambiarra list --json
+```
+
+**Output:**
+```json
+[
+  {
+    "id": "xK8pQ2mN5vL9",
+    "code": "ABC123",
+    "name": "My AI Lab",
+    "hostId": "host-id-123",
+    "createdAt": 1709395845000,
+    "participantCount": 3
+  },
+  {
+    "id": "aB3cD4eF5gH6",
+    "code": "XYZ789",
+    "name": "Team Collaboration",
+    "hostId": "host-id-456",
+    "createdAt": 1709391320000,
+    "participantCount": 1
+  }
+]
+```
+
+<Note>
+  JSON output is useful for parsing with tools like `jq` or integrating with scripts.
+</Note>
+
+### Parse JSON with jq
+
+Extract specific information using `jq`:
+
+```bash
+# Get all room codes
+gambiarra list --json | jq -r '.[].code'
+
+# Get rooms with more than 2 participants
+gambiarra list --json | jq '.[] | select(.participantCount > 2)'
+
+# Get room names sorted by participant count
+gambiarra list --json | jq -r 'sort_by(.participantCount) | .[].name'
+```
+
+### No rooms available
+
+If the hub has no active rooms:
+
+```bash
+gambiarra list
+```
+
+**Output:**
+```
+No rooms available.
+```
+
+## Response format
+
+Each room displays:
+
+- **Code**: The short code used to join the room (e.g., `ABC123`)
+- **Name**: The room's display name
+- **Participants**: Current number of connected participants
+- **Created**: Timestamp when the room was created (in local time)
+
+## Error handling
+
+### Hub not reachable
+
+If the hub is not running or unreachable:
+
+```bash
+gambiarra list --hub http://192.168.1.999:3000
+```
+
+**Output:**
+```
+Failed to connect to hub at http://192.168.1.999:3000
+[Error details]
+```
+
+The command exits with code 1.
+
+<Note>
+  Make sure the hub is running with [`gambiarra serve`](/cli/serve) before listing rooms.
+</Note>
+
+### API error
+
+If the hub returns an error:
+
+```
+Error: [Error message from hub]
+```
+
+## Use cases
+
+### Find room to join
+
+List rooms to find the code you need:
+
+```bash
+gambiarra list
+# Find the code, then:
+gambiarra join --code ABC123 --model llama3
+```
+
+### Monitor hub activity
+
+Check participant counts across rooms:
+
+```bash
+gambiarra list --json | jq '.[] | "\(.code): \(.participantCount) participants"'
+```
+
+**Output:**
+```
+ABC123: 3 participants
+XYZ789: 1 participants
+DEF456: 5 participants
+```
+
+### Check room age
+
+See when rooms were created:
+
+```bash
+gambiarra list
+```
+
+### Scripting and automation
+
+Integrate with shell scripts:
+
+```bash
+#!/bin/bash
+# Join the room with the most participants
+
+ROOM_CODE=$(gambiarra list --json | jq -r 'sort_by(.participantCount) | reverse | .[0].code')
+
+if [ -n "$ROOM_CODE" ]; then
+  echo "Joining busiest room: $ROOM_CODE"
+  gambiarra join --code "$ROOM_CODE" --model llama3
+else
+  echo "No rooms available"
+fi
+```
+
+## Room information details
+
+### Participant count
+
+Shows the number of currently connected participants. This count updates in real-time as participants join or leave.
+
+### Creation time
+
+Displays the timestamp when the room was created, formatted in your local timezone.
+
+### Room ID
+
+The internal unique identifier is included in JSON output but not displayed in the human-readable format.
+
+## Related commands
+
+- [`create`](/cli/create) - Create a new room
+- [`join`](/cli/join) - Join a room as a participant
+- [`monitor`](/cli/monitor) - Monitor rooms in real-time with TUI
+- [`serve`](/cli/serve) - Start the hub server
+
+## Next steps
+
+After listing rooms:
+
+1. Note the room code you want to join
+2. [Join the room](/cli/join) with your LLM endpoint
+3. [Monitor activity](/cli/monitor) to see real-time updates
+4. [Create a new room](/cli/create) if none match your needs

@@ -1,0 +1,188 @@
+---
+title: 'Rooms API'
+description: 'Create and list rooms in the Gambiarra hub'
+icon: 'door-open'
+---
+
+## Create Room
+
+Create a new room with an optional password.
+
+<CodeGroup>
+```bash Basic
+curl -X POST http://localhost:3000/rooms \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Team Room"
+  }'
+```
+
+```bash Password Protected
+curl -X POST http://localhost:3000/rooms \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Private Room",
+    "password": "secret123"
+  }'
+```
+</CodeGroup>
+
+### Endpoint
+
+```http
+POST /rooms
+```
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Human-readable name for the room
+</ParamField>
+
+<ParamField body="password" type="string">
+  Optional password to protect the room. Will be hashed using argon2id before storage.
+</ParamField>
+
+### Response
+
+**Status:** `201 Created`
+
+<ResponseField name="room" type="object">
+  The created room information
+  
+  <Expandable title="room properties">
+    <ResponseField name="id" type="string">
+      Internal room ID (nanoid)
+    </ResponseField>
+    
+    <ResponseField name="code" type="string">
+      6-character uppercase room code for joining
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Room name
+    </ResponseField>
+    
+    <ResponseField name="hostId" type="string">
+      UUID of the room creator
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="number">
+      Unix timestamp (milliseconds) when room was created
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="hostId" type="string">
+  UUID of the room creator (for convenience)
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "room": {
+    "id": "V1StGXR8_Z5jdHi6B-myT",
+    "code": "ABC123",
+    "name": "My Team Room",
+    "hostId": "550e8400-e29b-41d4-a716-446655440000",
+    "createdAt": 1709409600000
+  },
+  "hostId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### Error Responses
+
+<Accordion title="400 Bad Request - Missing Name">
+```json
+{
+  "error": "Name is required"
+}
+```
+</Accordion>
+
+---
+
+## List Rooms
+
+Retrieve all active rooms with participant counts.
+
+```bash
+curl http://localhost:3000/rooms
+```
+
+### Endpoint
+
+```http
+GET /rooms
+```
+
+### Response
+
+**Status:** `200 OK`
+
+<ResponseField name="rooms" type="array">
+  Array of room objects with participant counts
+  
+  <Expandable title="room properties">
+    <ResponseField name="id" type="string">
+      Internal room ID
+    </ResponseField>
+    
+    <ResponseField name="code" type="string">
+      6-character room code
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Room name
+    </ResponseField>
+    
+    <ResponseField name="hostId" type="string">
+      Room creator's UUID
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="number">
+      Creation timestamp (milliseconds)
+    </ResponseField>
+    
+    <ResponseField name="participantCount" type="number">
+      Number of participants currently in the room
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "rooms": [
+    {
+      "id": "V1StGXR8_Z5jdHi6B-myT",
+      "code": "ABC123",
+      "name": "My Team Room",
+      "hostId": "550e8400-e29b-41d4-a716-446655440000",
+      "createdAt": 1709409600000,
+      "participantCount": 3
+    },
+    {
+      "id": "3z4s5t6u7v8w9x0y1z2a3b",
+      "code": "XYZ789",
+      "name": "Development Team",
+      "hostId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "createdAt": 1709413200000,
+      "participantCount": 5
+    }
+  ]
+}
+```
+
+### Notes
+
+<Note>
+  The password hash is **never** returned in API responses to prevent offline brute-force attacks.
+</Note>
+
+<Info>
+  Rooms are stored in memory and will be cleared when the hub restarts. Use the hub as a coordination service, not for persistent storage.
+</Info>
